@@ -1350,3 +1350,13 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-010 (game) and 2610-011 (launcher). PC features 80% to 85% and overall 93% to 94% (`tools/progress.py`, README, portfolio site). The game executable does not change; the engine library only gains `mii.cpp` for the launcher.
 
+
+## Mii record layout cross-check (2026-10-13)
+
+- Existing editors were searched for: MiiInfoEditor (Electron, no licence), MiiJS (library, no licence), mii-editor, RSD-Editor (no licence) and FFL-Testing (renderer built on Nintendo's decompiled face library, licence not asserted). None has a licence that allows copying, so none is bundled. Only facts were taken from MiiJS's public format description (field widths of the Wii "RCD" record, 74 bytes; "RSD" is the same with a CRC appended), no code.
+- Corrections from that comparison: hair colour is 3 bits (bits 8-6) and the mirrored-hair flag is bit 5 (they were 4 bits and bit 4); glasses size is 3 bits (7-5); the eyebrow vertical position has a minimum of 3. The in-game check of 2026-10-13 had not told these apart. The default hair colour is now 1 (brown), as in the real record.
+
+## Version 0.1.12-alpha (2026-10-13)
+
+- Build 2610-012 (game) and 2610-013 (launcher). Corrects the Mii record fields listed above; progress figures unchanged (overall 94%).
+

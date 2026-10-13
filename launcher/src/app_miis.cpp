@@ -42,7 +42,7 @@ bool is_toggle(const std::string& key) {
     return key == "favorite" || key == "hair_flip" || key == "mole";
 }
 
-std::vector<std::string> choices(const std::string& key, uint32_t maximum) {
+std::vector<std::string> choices(const std::string& key, uint32_t maximum, uint32_t minimum) {
     std::vector<std::string> labels;
     if (key == "gender") {
         return {wp::ui::label("mii.male"), wp::ui::label("mii.female")};
@@ -52,6 +52,10 @@ std::vector<std::string> choices(const std::string& key, uint32_t maximum) {
     }
     bool optional = key == "birth_month" || key == "birth_day";
     for (uint32_t i = 0; i <= maximum; i++) {
+        if (i < minimum) {
+            labels.push_back("");
+            continue;
+        }
         labels.push_back(optional && i == 0 ? wp::ui::label("mii.unset") : std::to_string(optional ? i : i + (key == "height" || key == "weight" ? 0 : 1)));
     }
     return labels;
@@ -340,7 +344,7 @@ void App::miis_page(float width) {
             }
             first = false;
             uint32_t maximum = std::min<uint32_t>(field->maximum, (1u << field->bits) - 1u);
-            std::vector<std::string> labels = choices(key, maximum);
+            std::vector<std::string> labels = choices(key, maximum, field->minimum);
             int index = static_cast<int>(wp::mii::get(mii_database_.at(miis_selected_), *field));
             index = std::min(index, static_cast<int>(labels.size()) - 1);
             std::string label_key = std::string("mii.") + key;

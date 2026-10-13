@@ -886,6 +886,14 @@ void test_mii_database() {
     CHECK(wp::mii::get(record, *wp::mii::find_field("eye_type")) == 47);
     CHECK(wp::mii::get(record, *wp::mii::find_field("gender")) == 1);
     CHECK(wp::mii::get(record, *wp::mii::find_field("height")) == 63);
+    wp::mii::set(record, *wp::mii::find_field("eyebrow_vertical"), 0);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("eyebrow_vertical")) == 3);
+    wp::mii::set(record, *wp::mii::find_field("hair_color"), 7);
+    wp::mii::set(record, *wp::mii::find_field("hair_flip"), 1);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_color")) == 7);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_flip")) == 1);
+    wp::mii::set(record, *wp::mii::find_field("hair_flip"), 0);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_color")) == 7);
     wp::mii::set_name(record, "Ana María Luisa García");
     CHECK(wp::mii::name(record) == "Ana María ");
     wp::mii::set_name(record, "Ana");

@@ -24,15 +24,15 @@ const std::vector<Field> kFields = {
     {"gender", 0x00, 2, 14, 1, 1},         {"birth_month", 0x00, 2, 10, 4, 12},      {"birth_day", 0x00, 2, 5, 5, 31},
     {"favorite_color", 0x00, 2, 1, 4, 11}, {"favorite", 0x00, 2, 0, 1, 1},           {"height", 0x16, 1, 0, 7, 127},
     {"weight", 0x17, 1, 0, 7, 127},        {"face_shape", 0x20, 2, 13, 3, 7},        {"skin_color", 0x20, 2, 10, 3, 5},
-    {"facial_feature", 0x20, 2, 6, 4, 11}, {"hair_type", 0x22, 2, 9, 7, 71},         {"hair_color", 0x22, 2, 5, 4, 7},
-    {"hair_flip", 0x22, 2, 4, 1, 1},       {"eyebrow_type", 0x24, 4, 27, 5, 23},     {"eyebrow_rotation", 0x24, 4, 22, 4, 11},
-    {"eyebrow_color", 0x24, 4, 13, 3, 7},  {"eyebrow_size", 0x24, 4, 9, 4, 8},       {"eyebrow_vertical", 0x24, 4, 4, 5, 18},
+    {"facial_feature", 0x20, 2, 6, 4, 11}, {"hair_type", 0x22, 2, 9, 7, 71},         {"hair_color", 0x22, 2, 6, 3, 7},
+    {"hair_flip", 0x22, 2, 5, 1, 1},       {"eyebrow_type", 0x24, 4, 27, 5, 23},     {"eyebrow_rotation", 0x24, 4, 22, 4, 11},
+    {"eyebrow_color", 0x24, 4, 13, 3, 7},  {"eyebrow_size", 0x24, 4, 9, 4, 8},       {"eyebrow_vertical", 0x24, 4, 4, 5, 18, 3},
     {"eyebrow_spacing", 0x24, 4, 0, 4, 12}, {"eye_type", 0x28, 4, 26, 6, 47},         {"eye_rotation", 0x28, 4, 21, 3, 7},
     {"eye_vertical", 0x28, 4, 16, 5, 18},  {"eye_color", 0x28, 4, 13, 3, 5},         {"eye_size", 0x28, 4, 9, 3, 7},
     {"eye_spacing", 0x28, 4, 5, 4, 12},    {"nose_type", 0x2C, 2, 12, 4, 11},        {"nose_size", 0x2C, 2, 8, 4, 8},
     {"nose_vertical", 0x2C, 2, 3, 5, 18},  {"mouth_type", 0x2E, 2, 11, 5, 23},       {"mouth_color", 0x2E, 2, 9, 2, 2},
     {"mouth_size", 0x2E, 2, 5, 4, 8},      {"mouth_vertical", 0x2E, 2, 0, 5, 18},    {"glasses_type", 0x30, 2, 12, 4, 8},
-    {"glasses_color", 0x30, 2, 9, 3, 5},  {"glasses_size", 0x30, 2, 5, 4, 7},       {"glasses_vertical", 0x30, 2, 0, 5, 20},
+    {"glasses_color", 0x30, 2, 9, 3, 5},  {"glasses_size", 0x30, 2, 5, 3, 7},       {"glasses_vertical", 0x30, 2, 0, 5, 20},
     {"mustache_type", 0x32, 2, 14, 2, 3},  {"beard_type", 0x32, 2, 12, 2, 3},        {"facial_hair_color", 0x32, 2, 9, 3, 7},
     {"mustache_size", 0x32, 2, 5, 4, 8},   {"mustache_vertical", 0x32, 2, 0, 5, 16}, {"mole", 0x34, 2, 15, 1, 1},
     {"mole_size", 0x34, 2, 11, 4, 8},      {"mole_vertical", 0x34, 2, 6, 5, 30},     {"mole_horizontal", 0x34, 2, 1, 5, 16},
@@ -154,7 +154,8 @@ void set(Record& record, const Field& field, uint32_t input) {
     }
     uint32_t mask = ((1u << field.bits) - 1u) << field.shift;
     uint32_t limit = std::min<uint32_t>(field.maximum, (1u << field.bits) - 1u);
-    value = (value & ~mask) | ((std::min(input, limit) << field.shift) & mask);
+    input = std::max<uint32_t>(std::min(input, limit), field.minimum);
+    value = (value & ~mask) | ((input << field.shift) & mask);
     for (uint8_t i = 0; i < field.bytes; i++) {
         record[field.offset + i] = static_cast<uint8_t>(value >> (8 * (field.bytes - 1 - i)));
     }
@@ -200,7 +201,7 @@ Record default_record(const std::string& utf8_name) {
     const struct {
         const char* key;
         uint32_t value;
-    } defaults[] = {{"height", 63},           {"weight", 63},          {"hair_type", 33},          {"hair_color", 2},      {"eyebrow_type", 6},
+    } defaults[] = {{"height", 63},           {"weight", 63},          {"hair_type", 33},          {"hair_color", 1},      {"eyebrow_type", 6},
                     {"eyebrow_rotation", 6},  {"eyebrow_color", 1},    {"eyebrow_size", 4},     {"eyebrow_vertical", 10},   {"eyebrow_spacing", 2},  {"eye_type", 2},
                     {"eye_rotation", 4},      {"eye_vertical", 12},    {"eye_size", 4},            {"eye_spacing", 2},      {"nose_type", 1},
                     {"nose_size", 4},         {"nose_vertical", 9},    {"mouth_type", 23},         {"mouth_size", 4},       {"mouth_vertical", 13},

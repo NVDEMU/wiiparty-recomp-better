@@ -26,6 +26,7 @@ struct Field {
     uint8_t shift;
     uint8_t bits;
     uint8_t maximum;
+    uint8_t minimum = 0;
 };
 
 const std::vector<Field>& fields();
