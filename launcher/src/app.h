@@ -16,6 +16,7 @@
 #include "toolchain.h"
 #include "ui.h"
 #include "updater.h"
+#include "wp/mii.h"
 #include "wp/save_backup.h"
 
 struct TexturePack {
@@ -41,7 +42,7 @@ struct Capture {
     bool selected = false;
 };
 
-enum class Page { Game, Settings, Saves, Controls, Textures, Captures, System, Licenses, Count };
+enum class Page { Game, Settings, Saves, Controls, Textures, Miis, Captures, System, Licenses, Count };
 
 class App {
 public:
@@ -75,6 +76,9 @@ private:
     void controls_page(float width);
     void licenses_page(float width, float height);
     void textures_page(float width);
+    void miis_page(float width);
+    void save_miis();
+    void choose_mii_file();
     void versions_section(float width);
     void gamepads_section(float width);
     void wiimotes_section(float width);
@@ -154,9 +158,18 @@ private:
     std::string picked_disc_;
     std::string picked_folder_;
     std::string picked_added_disc_;
+    std::string picked_mii_;
+    std::string miis_message_;
+    bool miis_message_failed_ = false;
     std::string add_disc_;
     std::vector<TexturePack> packs_;
     bool packs_dirty_ = true;
+    wp::mii::Database mii_database_;
+    bool miis_dirty_ = true;
+    size_t miis_selected_ = 0;
+    size_t miis_name_slot_ = static_cast<size_t>(-1);
+    char miis_name_[64] = {};
+    bool miis_save_failed_ = false;
     std::string versions_message_;
     bool versions_failed_ = false;
     int last_step_ = -1;

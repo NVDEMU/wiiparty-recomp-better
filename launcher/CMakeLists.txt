@@ -6,8 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_FLAGS_RELEASE "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-Os -DNDEBUG")
-set(WP_LAUNCHER_VERSION "0.1.10-alpha" CACHE STRING "Version shown in the launcher")
-set(WP_LAUNCHER_BUILD "2610-009" CACHE STRING "Build number shown in the launcher")
+set(WP_LAUNCHER_VERSION "0.1.11-alpha" CACHE STRING "Version shown in the launcher")
+set(WP_LAUNCHER_BUILD "2610-011" CACHE STRING "Build number shown in the launcher")
 
 include(FetchContent)
 
@@ -66,9 +66,11 @@ add_executable(launcher WIN32
     src/app_controls.cpp
     src/app_dolphin.cpp
     src/app_captures.cpp
+    src/app_miis.cpp
     src/app_system.cpp
     ${WP_ENGINE}/src/platform/settings.cpp
     ${WP_ENGINE}/src/platform/options.cpp
+    ${WP_ENGINE}/src/platform/mii.cpp
     ${WP_ENGINE}/src/platform/ui_text.cpp
     ${WP_ENGINE}/src/platform/save_backup.cpp
     ${WP_ENGINE}/src/input/keymap.cpp

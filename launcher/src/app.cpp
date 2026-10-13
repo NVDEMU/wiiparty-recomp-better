@@ -599,7 +599,7 @@ void App::sidebar(float height) {
     ImGui::SetCursorScreenPos(origin + ImVec2(px(76), px(51)));
     ui::text("Recomp", Font::Regular, ui::size::kDetail, p.secondary);
     const Texts& t = texts();
-    const char* names[] = {t.game, t.settings, t.saves, t.controls, t.page_textures, t.page_captures, t.page_system, t.licenses};
+    const char* names[] = {t.game, t.settings, t.saves, t.controls, t.page_textures, wp::ui::label("mii.title"), t.page_captures, t.page_system, t.licenses};
     float top = px(100);
     float step = px(36) + px(2);
     ImGuiID indicator = ImHashStr("nav-indicator");
@@ -625,7 +625,7 @@ void App::page(float width, float height) {
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(px(kPagePaddingX), px(kPagePaddingTop) + std::round((1.0f - shown) * px(10))));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ui::palette().background);
-    bool scrolls = page_ == Page::Settings || page_ == Page::Saves || page_ == Page::Controls || page_ == Page::Textures || page_ == Page::Captures ||
+    bool scrolls = page_ == Page::Settings || page_ == Page::Saves || page_ == Page::Controls || page_ == Page::Textures || page_ == Page::Miis || page_ == Page::Captures ||
                    page_ == Page::System;
     ImGui::BeginChild(static_cast<int>(page_) + 100, ImVec2(width, height), ImGuiChildFlags_AlwaysUseWindowPadding,
                       scrolls ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -646,6 +646,9 @@ void App::page(float width, float height) {
         break;
     case Page::Textures:
         textures_page(content);
+        break;
+    case Page::Miis:
+        miis_page(content);
         break;
     case Page::Captures:
         captures_page(content);

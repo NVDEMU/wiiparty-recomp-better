@@ -20,6 +20,7 @@
 #include "wp/input.h"
 #include "wp/ios.h"
 #include "wp/keymap.h"
+#include "wp/mii.h"
 #include "wp/modules.h"
 #include "wp/nand.h"
 #include "wp/options.h"
@@ -871,6 +872,81 @@ void test_controls_hint() {
     CHECK(!watch.update({"inst"}, nullptr, nullptr));
 }
 
+void test_mii_database() {
+    wp::mii::Database database;
+    CHECK(database.count() == 0);
+    wp::mii::Record record = wp::mii::default_record("Tester");
+    CHECK(wp::mii::name(record) == "Tester");
+    wp::mii::set(record, *wp::mii::find_field("hair_type"), 71);
+    wp::mii::set(record, *wp::mii::find_field("hair_type"), 200);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_type")) == 71);
+    wp::mii::set(record, *wp::mii::find_field("eye_type"), 47);
+    wp::mii::set(record, *wp::mii::find_field("gender"), 1);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_type")) == 71);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("eye_type")) == 47);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("gender")) == 1);
+    CHECK(wp::mii::get(record, *wp::mii::find_field("height")) == 63);
+    wp::mii::set_name(record, "Ana María Luisa García");
+    CHECK(wp::mii::name(record) == "Ana María ");
+    wp::mii::set_name(record, "Ana");
+    size_t first = database.add(record);
+    size_t second = database.add(wp::mii::default_record("Luis"));
+    CHECK(first == 0 && second == 1);
+    CHECK(database.count() == 2);
+    CHECK(std::memcmp(database.at(0).data() + 0x1C, database.at(1).data() + 0x1C, 4) == 0);
+    CHECK(std::memcmp(database.at(0).data() + 0x18, database.at(1).data() + 0x18, 4) != 0);
+    std::vector<uint8_t> bytes = database.bytes();
+    CHECK(bytes.size() == wp::mii::kFileSize);
+    CHECK(bytes[0] == 'R' && bytes[3] == 'D');
+    uint16_t stored = static_cast<uint16_t>((bytes[wp::mii::kChecksumOffset] << 8) | bytes[wp::mii::kChecksumOffset + 1]);
+    CHECK(stored == wp::mii::crc16(bytes.data(), wp::mii::kChecksumOffset));
+    wp::mii::Database loaded;
+    CHECK(loaded.parse(bytes));
+    CHECK(loaded.count() == 2);
+    CHECK(wp::mii::name(loaded.at(1)) == "Luis");
+    CHECK(wp::mii::get(loaded.at(0), *wp::mii::find_field("hair_type")) == 71);
+    bytes[10] ^= 1;
+    CHECK(!loaded.parse(bytes));
+    database.remove(0);
+    CHECK(database.count() == 1);
+    CHECK(database.add(wp::mii::default_record("Eva")) == 0);
+    const char* path = "wp_mii_test.dat";
+    CHECK(database.save(path));
+    wp::mii::Database reloaded;
+    CHECK(reloaded.load(path) && reloaded.existed() && reloaded.count() == 2);
+    std::remove(path);
+    CHECK(wp::mii::crc16(reinterpret_cast<const uint8_t*>("123456789"), 9) == 0x31C3);
+    {
+        std::vector<uint8_t> single(wp::mii::kRecordSize);
+        CHECK(wp::mii::import_records(single).empty());
+        wp::mii::Record sample = wp::mii::default_record("Imp");
+        single.assign(sample.begin(), sample.end());
+        CHECK(wp::mii::import_records(single).size() == 1);
+        std::vector<uint8_t> stored = single;
+        uint16_t crc = wp::mii::crc16(single.data(), single.size());
+        stored.push_back(static_cast<uint8_t>(crc >> 8));
+        stored.push_back(static_cast<uint8_t>(crc));
+        std::vector<wp::mii::Record> imported = wp::mii::import_records(stored);
+        CHECK(imported.size() == 1 && wp::mii::name(imported[0]) == "Imp");
+        std::vector<uint8_t> two = single;
+        two.insert(two.end(), single.begin(), single.end());
+        CHECK(wp::mii::import_records(two).size() == 2);
+        CHECK(wp::mii::import_records(database.bytes()).size() == 2);
+        CHECK(wp::mii::import_records(std::vector<uint8_t>(10, 1)).empty());
+    }
+    for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
+        for (const wp::mii::Field& field : wp::mii::fields()) {
+            std::string key = std::string("mii.") + field.key;
+            CHECK(key != wp::ui::label(key.c_str(), language));
+            CHECK(field.maximum <= (1u << field.bits) - 1u);
+        }
+        for (const char* key : {"mii.title", "mii.intro", "mii.new", "mii.duplicate", "mii.delete", "mii.none", "mii.count", "mii.damaged", "mii.group.general",
+                                "mii.group.mole", "mii.male", "mii.female", "mii.name"}) {
+            CHECK(std::string(key) != wp::ui::label(key, language));
+        }
+    }
+}
+
 void test_options_menu() {
     wp::settings::load("");
     std::vector<std::string> keys = wp::settings::keys();
@@ -1189,6 +1265,7 @@ int main() {
     test_live_settings();
     test_options_menu();
     test_controls_hint();
+    test_mii_database();
     test_options_repeat_and_layout();
     test_options_render();
     test_software_fma();
