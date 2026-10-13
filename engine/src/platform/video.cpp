@@ -497,6 +497,22 @@ void present_on_gpu(HWND window, double aspect) {
         }
         g_next_frame_path.clear();
     }
+    static std::FILE* const pipe = std::getenv("WP_SAVE_PIPE") ? _popen(std::getenv("WP_SAVE_PIPE"), "wb") : nullptr;
+    if (pipe) {
+        static size_t pipe_pixels = 0;
+        std::vector<uint32_t> pixels;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        if (gx::render::read_frame(pixels, width, height)) {
+            if (pipe_pixels == 0) {
+                pipe_pixels = pixels.size();
+                log::write("video", "frame pipe %u x %u", width, height);
+            }
+            if (pixels.size() == pipe_pixels) {
+                std::fwrite(pixels.data(), sizeof(uint32_t), pixels.size(), pipe);
+            }
+        }
+    }
     static int frames = 0;
     const char* save = std::getenv("WP_SAVE_FRAME");
     static const int every = std::getenv("WP_SAVE_EVERY") ? std::atoi(std::getenv("WP_SAVE_EVERY")) : 100;
@@ -518,7 +534,7 @@ void save_next_frame(const char* path) {
 
 void present() {
     HWND window = g_window;
-    static const bool saving = std::getenv("WP_SAVE_FRAME") || std::getenv("WP_CAPTURE_AT");
+    static const bool saving = std::getenv("WP_SAVE_FRAME") || std::getenv("WP_CAPTURE_AT") || std::getenv("WP_SAVE_PIPE");
     if (!window && !saving) {
         gx::process();
         return;

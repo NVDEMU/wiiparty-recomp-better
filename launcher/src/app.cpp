@@ -220,6 +220,13 @@ App::App(SDL_Window* window, Project project, bool install_mode)
         disc_ = first_disc(project_.game_folder() / "disc");
     }
     remove_old_launcher();
+    if (wp::keymap::legacy_directions([this](const std::string& key) { return value(key); })) {
+        for (size_t i = 0; i < wp::keymap::kActionCount; i++) {
+            if (wp::keymap::direction(i)) {
+                store(wp::keymap::setting_key(i), wp::keymap::action(i).defaults);
+            }
+        }
+    }
     if (pref("seen_version").empty()) {
         set_pref("seen_version", WP_LAUNCHER_VERSION);
     }
@@ -1630,6 +1637,10 @@ void App::create_report() {
         out << "Gamepad " << i + 1 << ": " << (name ? name : "?") << "\n";
     }
     SDL_free(pads);
+    out << "\n--- system ---\n";
+    for (const auto& line : diagnostics()) {
+        out << line.first << ": " << line.second << "\n";
+    }
     out << "\n--- settings ---\n" << tail_of(project_.game_folder() / "settings.ini", 400);
     out << "\n--- last install (end) ---\n" << tail_of(project_.root / "build" / "install.log", 200);
     out << "\n--- last game session (end) ---\n" << tail_of(project_.root / "logs" / "game.log", 400);

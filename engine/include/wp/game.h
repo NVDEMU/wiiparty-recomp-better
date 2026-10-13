@@ -14,6 +14,8 @@ struct Description {
     const char* notice_module;
     const char* const* sideways_modules;
     size_t sideways_module_count;
+    const char* instruction_module;
+    const char* minigame_prefix;
 };
 
 const Description& description();

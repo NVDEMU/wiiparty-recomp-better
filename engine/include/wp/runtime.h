@@ -2,6 +2,8 @@
 
 #include <csetjmp>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "wp/cpu.h"
 
@@ -20,6 +22,7 @@ void describe_loaded_modules(uint32_t address);
 uint32_t external_address(uint32_t module_identifier, uint32_t section, uint32_t offset);
 const char* module_name_at(uint32_t address);
 bool module_loaded(const char* name);
+std::vector<std::string> loaded_module_names();
 void init_threads(Cpu& c);
 void load_context(Cpu& c);
 void enter_exception_context(uint32_t context);

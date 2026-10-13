@@ -34,6 +34,7 @@ const Option kBaseOptions[] = {
     {"input.real_wiimote_mouse", "1"},
     {"input.wake_on_mouse", "1"},
     {"input.hide_cursor", "0"},
+    {"input.controls_hint", "0"},
     {"system.interface_language", "en"},
     {"system.language", "auto"},
     {"system.pal60", "1"},

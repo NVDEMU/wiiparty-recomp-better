@@ -22,5 +22,6 @@ int32_t rename(const std::string& from, const std::string& to);
 bool exists(const std::string& path);
 std::string host_directory(const std::string& path);
 bool widescreen();
+bool console_is_spanish();
 
 }

@@ -264,6 +264,10 @@ Sample device_sample(uint32_t channel) {
     }
     bool sideways = sideways_grip(true);
     if (sideways) {
+        uint32_t keys_held = result.buttons;
+        result.buttons &= ~(kButtonUp | kButtonDown | kButtonLeft | kButtonRight);
+        result.buttons |= ((keys_held & kButtonLeft) ? kButtonUp : 0) | ((keys_held & kButtonRight) ? kButtonDown : 0) | ((keys_held & kButtonUp) ? kButtonRight : 0) |
+                          ((keys_held & kButtonDown) ? kButtonLeft : 0);
         result.buttons |= kMotionSideways;
     }
     gamepad::State pad = gamepad::poll(channel, sideways);

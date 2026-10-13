@@ -545,4 +545,8 @@ int32_t rename(const std::string& from, const std::string& to) {
     return 0;
 }
 
+bool console_is_spanish() {
+    return console_language() == kLanguageSpanish;
+}
+
 }

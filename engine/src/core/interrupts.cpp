@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +13,7 @@
 #include "wp/hle.h"
 #include "wp/ipc.h"
 #include "wp/memory.h"
+#include "wp/profile.h"
 #include "wp/runtime.h"
 #include "wp/si.h"
 #include "wp/threads.h"
@@ -40,6 +43,8 @@ constexpr std::chrono::microseconds kPalPeriod(20000);
 constexpr std::chrono::microseconds kNtscPeriod(16683);
 
 using Clock = std::chrono::steady_clock;
+constexpr uint32_t kCurrentThread = 0x800000E4;
+std::atomic<int64_t> g_idle_nanoseconds{0};
 
 std::chrono::microseconds retrace_period() {
     return (rd16(kDisplayConfig) & kFormatMask) == kFormatPal ? kPalPeriod : kNtscPeriod;
@@ -137,6 +142,15 @@ void deliver_video_interrupt(Cpu& c) {
 
 }
 
+double idle_share() {
+    static Clock::time_point previous = Clock::now();
+    Clock::time_point now = Clock::now();
+    double elapsed = std::chrono::duration<double, std::nano>(now - previous).count();
+    previous = now;
+    double idle = static_cast<double>(g_idle_nanoseconds.exchange(0));
+    return elapsed > 0.0 ? std::min(1.0, idle / elapsed) : -1.0;
+}
+
 void interrupt_left() {
     g_in_interrupt = false;
 }
@@ -184,6 +198,14 @@ void poll_interrupts(Cpu& c) {
     }
     gx::process();
     Clock::time_point now = Clock::now();
+    static Clock::time_point previous_poll = now;
+    static bool previous_idle = false;
+    bool idle = rd32(kCurrentThread) == 0;
+    if (idle && previous_idle) {
+        g_idle_nanoseconds += std::chrono::duration_cast<std::chrono::nanoseconds>(now - previous_poll).count();
+    }
+    previous_poll = now;
+    previous_idle = idle;
     if (now < g_next_retrace) {
         return;
     }

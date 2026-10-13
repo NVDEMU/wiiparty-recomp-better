@@ -17,10 +17,10 @@ constexpr ActionInfo kActions[kActionCount] = {
     {"plus", input::kButtonPlus, "Plus,NumPlus"},
     {"minus", input::kButtonMinus, "Minus,NumMinus"},
     {"home", input::kButtonHome, "H"},
-    {"up", input::kButtonUp, "Up,A"},
-    {"down", input::kButtonDown, "Down,D"},
-    {"left", input::kButtonLeft, "Left,S"},
-    {"right", input::kButtonRight, "Right,W"},
+    {"up", input::kButtonUp, "Up,W"},
+    {"down", input::kButtonDown, "Down,S"},
+    {"left", input::kButtonLeft, "Left,A"},
+    {"right", input::kButtonRight, "Right,D"},
     {"shake", input::kMotionShake, "MouseMiddle,LeftShift"},
     {"swing_up", input::kMotionSwingUp, "WheelUp,T"},
     {"swing_down", input::kMotionSwingDown, "WheelDown,G"},
@@ -36,6 +36,13 @@ struct Key {
     const char* name;
     int code;
 };
+
+struct Legacy {
+    Action action;
+    const char* keys;
+};
+
+constexpr Legacy kLegacyDirections[] = {{Action::Up, "Up,A"}, {Action::Down, "Down,D"}, {Action::Left, "Left,S"}, {Action::Right, "Right,W"}};
 
 constexpr Key kKeys[] = {
     {"MouseLeft", 0x01},  {"MouseRight", 0x02},  {"MouseMiddle", 0x04}, {"MouseX1", 0x05},     {"MouseX2", 0x06},
@@ -186,11 +193,25 @@ Bindings defaults() {
     return result;
 }
 
+bool legacy_directions(const std::function<std::string(const std::string& key)>& value) {
+    for (const Legacy& entry : kLegacyDirections) {
+        if (parse(value(setting_key(static_cast<size_t>(entry.action)))).codes != parse(entry.keys).codes) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool direction(size_t index) {
+    return index >= static_cast<size_t>(Action::Up) && index <= static_cast<size_t>(Action::Right);
+}
+
 Bindings load(const std::function<std::string(const std::string& key)>& value, std::vector<std::string>& invalid) {
     Bindings result;
+    bool legacy = legacy_directions(value);
     for (size_t i = 0; i < kActionCount; i++) {
         std::string key = setting_key(i);
-        Parsed parsed = parse(value(key));
+        Parsed parsed = parse(legacy && direction(i) ? std::string(kActions[i].defaults) : value(key));
         for (const std::string& name : parsed.invalid) {
             invalid.push_back(key + ": " + name);
         }

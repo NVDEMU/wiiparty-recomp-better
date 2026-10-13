@@ -1,6 +1,7 @@
 #include "wp/disc.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -136,18 +137,19 @@ void read(uint64_t offset, uint32_t length, uint32_t destination) {
         }
         uint64_t start = std::max(offset, it->offset);
         uint64_t stop = std::min(end, file_end);
+        auto began = std::chrono::steady_clock::now();
         std::FILE* file = std::fopen(it->path.c_str(), "rb");
         if (logging) {
             std::fprintf(stderr, "disc read %llx+%x -> %08x from %s%s\n", static_cast<unsigned long long>(offset), length,
                          destination, it->path.c_str(), file ? "" : " (missing)");
         }
-        log::write("disc", "read %u bytes from %s%s", static_cast<uint32_t>(stop - start), it->path.c_str(), file ? "" : " (missing)");
-        if (!file) {
-            continue;
+        if (file) {
+            std::fseek(file, static_cast<long>(start - it->offset), SEEK_SET);
+            std::fread(output + (start - offset), 1, static_cast<size_t>(stop - start), file);
+            std::fclose(file);
         }
-        std::fseek(file, static_cast<long>(start - it->offset), SEEK_SET);
-        std::fread(output + (start - offset), 1, static_cast<size_t>(stop - start), file);
-        std::fclose(file);
+        double spent = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+        log::write("disc", "read %u bytes from %s%s in %.2f ms", static_cast<uint32_t>(stop - start), it->path.c_str(), file ? "" : " (missing)", spent);
     }
 }
 

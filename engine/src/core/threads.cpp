@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iterator>
 #include <map>
+#include <vector>
 
 #include "wp/fiber.h"
 #include "wp/function_table.h"
@@ -111,6 +112,17 @@ void print_history() {
 
 std::map<uint32_t, SavedContext> g_saved;
 std::map<uint32_t, SavedJump> g_jumps;
+struct FiberRecord {
+    void* fiber;
+    uint32_t thread;
+};
+
+constexpr uint32_t kActiveThreadQueue = 0x800000DC;
+constexpr uint32_t kCurrentThread = 0x800000E4;
+constexpr uint32_t kActiveLinkOffset = 0x2FC;
+constexpr int kMaxActiveThreads = 256;
+std::vector<FiberRecord> g_fibers;
+size_t g_most_fibers = 0;
 uint32_t g_jump_buffer = 0;
 uint32_t g_jump_value = 0;
 uint32_t g_start_value = 1;
@@ -204,6 +216,73 @@ void restore_jump(Cpu& c, uint32_t buffer) {
     std::longjmp(*point, 1);
 }
 
+bool thread_active(uint32_t thread) {
+    uint32_t item = rd32(kActiveThreadQueue);
+    for (int guard = 0; item != 0 && guard < kMaxActiveThreads; guard++) {
+        if (item == thread) {
+            return true;
+        }
+        item = rd32(item + kActiveLinkOffset);
+    }
+    return false;
+}
+
+bool fiber_reachable(const FiberRecord& record) {
+    if (record.fiber == fiber::current()) {
+        return true;
+    }
+    if (record.thread != 0 && !thread_active(record.thread)) {
+        return false;
+    }
+    for (const auto& saved : g_saved) {
+        if (saved.second.fiber == record.fiber) {
+            return true;
+        }
+    }
+    for (const auto& jump : g_jumps) {
+        if (jump.second.fiber == record.fiber) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void forget_fiber(void* fiber) {
+    for (auto it = g_saved.begin(); it != g_saved.end();) {
+        it = it->second.fiber == fiber ? g_saved.erase(it) : std::next(it);
+    }
+    for (auto it = g_jumps.begin(); it != g_jumps.end();) {
+        it = it->second.fiber == fiber ? g_jumps.erase(it) : std::next(it);
+    }
+#ifdef WP_TRACE
+    g_traces.erase(fiber);
+#endif
+}
+
+void* create_fiber(fiber::Entry entry, uint32_t parameter, uint32_t thread) {
+    for (auto it = g_jumps.begin(); it != g_jumps.end();) {
+        bool current = it->second.link == rd32(it->first + kJumpLinkOffset) && it->second.stack == rd32(it->first + kJumpStackOffset);
+        it = current ? std::next(it) : g_jumps.erase(it);
+    }
+    for (auto it = g_fibers.begin(); it != g_fibers.end();) {
+        if (fiber_reachable(*it)) {
+            ++it;
+            continue;
+        }
+        void* dead = it->fiber;
+        it = g_fibers.erase(it);
+        forget_fiber(dead);
+        fiber::destroy(dead);
+    }
+    void* created = fiber::create(kFiberStackSize, entry, reinterpret_cast<void*>(static_cast<uintptr_t>(parameter)));
+    g_fibers.push_back(FiberRecord{created, thread_active(thread) ? thread : 0});
+    if (g_fibers.size() > g_most_fibers) {
+        g_most_fibers = g_fibers.size();
+        log::write("threads", "%u host stacks for guest threads", static_cast<unsigned>(g_most_fibers));
+    }
+    return created;
+}
+
 void discard_fiber(void* fiber) {
     for (auto it = g_saved.begin(); it != g_saved.end();) {
         it = it->second.fiber == fiber ? g_saved.erase(it) : std::next(it);
@@ -217,6 +296,7 @@ void discard_fiber(void* fiber) {
 #ifdef WP_TRACE
     g_traces.erase(fiber);
 #endif
+    g_fibers.erase(std::remove_if(g_fibers.begin(), g_fibers.end(), [fiber](const FiberRecord& record) { return record.fiber == fiber; }), g_fibers.end());
     fiber::destroy(fiber);
 }
 
@@ -328,7 +408,7 @@ void load_context(Cpu& c) {
     }
     if (it == g_saved.end()) {
         note('n', context, rd32(context + kSrr0Offset));
-        void* fiber = fiber::create(kFiberStackSize, start_thread, reinterpret_cast<void*>(static_cast<uintptr_t>(context)));
+        void* fiber = create_fiber(start_thread, context, context);
 #ifdef WP_TRACE
         register_trace(fiber);
 #endif
@@ -387,7 +467,7 @@ void long_jump(Cpu& c) {
             g_jumps.erase(it);
         }
         g_start_value = value;
-        void* fiber = fiber::create(kFiberStackSize, start_jump, reinterpret_cast<void*>(static_cast<uintptr_t>(buffer)));
+        void* fiber = create_fiber(start_jump, buffer, rd32(kCurrentThread));
 #ifdef WP_TRACE
         register_trace(fiber);
 #endif

@@ -241,6 +241,21 @@ const char* module_name_at(uint32_t address) {
 }
 
 
+std::vector<std::string> loaded_module_names() {
+    std::vector<std::string> names;
+    uint32_t info = rd32(kModuleListHead);
+    for (uint32_t guard = 0; info != 0 && guard < kMaxModules; guard++, info = rd32(info + kInfoNext)) {
+        uint32_t identifier = rd32(info + kInfoIdentifier);
+        for (size_t m = 0; m < g_module_count; m++) {
+            if (g_module_table[m]->identifier == identifier) {
+                names.push_back(g_module_table[m]->name);
+                break;
+            }
+        }
+    }
+    return names;
+}
+
 bool module_loaded(const char* name) {
     uint32_t info = rd32(kModuleListHead);
     for (uint32_t guard = 0; info != 0 && guard < kMaxModules; guard++, info = rd32(info + kInfoNext)) {

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
+#include <initializer_list>
 #include <iterator>
 #include <mutex>
 #include <utility>
@@ -15,7 +17,7 @@ namespace {
 
 constexpr const char* kLiveKeys[] = {
     "video.scale",         "video.fullscreen",    "video.copy_filter",   "input.gamepads", "input.auto_grip",
-    "input.real_wiimote_mouse", "input.wake_on_mouse", "input.hide_cursor",   "system.skip_notices", "system.options_menu", "audio.mute", "audio.wiimote_speaker", "saves.backups", "system.interface_language",
+    "input.real_wiimote_mouse", "input.wake_on_mouse", "input.hide_cursor",   "input.controls_hint", "system.skip_notices", "system.options_menu", "audio.mute", "audio.wiimote_speaker", "saves.backups", "system.interface_language",
 };
 
 struct Language {
@@ -299,6 +301,62 @@ Hover hit_test(const Layout& layout, const Rect& placed, int x, int y) {
         result.part = bx < control.x + arrow ? Part::Previous : bx >= control.x + control.width - arrow ? Part::Next : Part::Value;
     }
     return result;
+}
+
+std::vector<HintRow> hint_rows(const keymap::Bindings& bindings, ui::Language language) {
+    using keymap::Action;
+    std::vector<HintRow> rows;
+    rows.push_back({ui::label("hint.pointer", language), ui::label("hint.mouse", language)});
+    auto add = [&](const std::string& name, const std::string& keys) {
+        if (!keys.empty()) {
+            rows.push_back({name, keys});
+        }
+    };
+    auto keys_of = [&](Action action) { return keymap::format(bindings.of(action), "/"); };
+    auto joined = [&](std::initializer_list<Action> actions) {
+        std::string result;
+        for (Action action : actions) {
+            std::string keys = keys_of(action);
+            if (!keys.empty()) {
+                result += result.empty() ? "" : "  ";
+                result += keys;
+            }
+        }
+        return result;
+    };
+    add("A", keys_of(Action::A));
+    add("B", keys_of(Action::B));
+    add("1", keys_of(Action::One));
+    add("2", keys_of(Action::Two));
+    add("+", keys_of(Action::Plus));
+    add("-", keys_of(Action::Minus));
+    add(ui::label("hint.dpad", language), joined({Action::Up, Action::Down, Action::Left, Action::Right}));
+    add(ui::label("hint.shake", language), keys_of(Action::Shake));
+    add(ui::label("hint.swing", language), joined({Action::SwingUp, Action::SwingDown}));
+    add(ui::label("hint.tilt", language), joined({Action::TiltLeft, Action::TiltRight, Action::TiltUp, Action::TiltDown}));
+    return rows;
+}
+
+bool InstructionWatch::update(const std::vector<std::string>& modules, const char* instruction, const char* minigame_prefix) {
+    size_t prefix_size = minigame_prefix ? std::strlen(minigame_prefix) : 0;
+    bool instruction_loaded = false;
+    bool minigame_loaded = false;
+    bool other_loaded = false;
+    for (const std::string& name : modules) {
+        if (instruction && name == instruction) {
+            instruction_loaded = true;
+        } else if (prefix_size > 0 && name.compare(0, prefix_size, minigame_prefix) == 0) {
+            minigame_loaded = true;
+        } else {
+            other_loaded = true;
+        }
+    }
+    if (minigame_loaded) {
+        after_minigame_ = true;
+    } else if (other_loaded) {
+        after_minigame_ = false;
+    }
+    return instruction_loaded && !after_minigame_;
 }
 
 void show_overlay(Image image) {

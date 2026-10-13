@@ -399,7 +399,11 @@ void read_summary(const std::string& body, Release& release) {
         std::string code = body.substr(at + marker.size(), colon - at - marker.size());
         size_t start = body.find_first_not_of(' ', colon + 1);
         if (start != std::string::npos && start < close) {
-            release.localized[code] = body.substr(start, close - start);
+            std::string text = body.substr(start, close - start);
+            if (!text.empty() && text[0] >= 'a' && text[0] <= 'z') {
+                text[0] = static_cast<char>(text[0] - 'a' + 'A');
+            }
+            release.localized[code] = text;
         }
         at = close;
     }

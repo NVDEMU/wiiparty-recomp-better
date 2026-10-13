@@ -3,7 +3,7 @@
 Static recompilation of Wii Party for native PC.
 
 > [!NOTE]
-> **Project Status:** Alpha. The game boots, reaches every menu and plays complete Board Game Island sessions and every Free Play minigame. Progress is estimated at **91%** overall.
+> **Project Status:** Alpha. The game boots, reaches every menu and plays complete Board Game Island sessions and every Free Play minigame. Progress is estimated at **93%** overall.
 
 ![Project progress](docs/progress.svg)
 
@@ -28,8 +28,8 @@ Tracked in `games/wiiparty/analysis/progress.csv`:
 | **Graphics (GX to D3D11)** | **100%** | Menus, text, 3D models, lit Miis, TEV, indirect textures, fog and EFB copies; no known fault in any minigame. |
 | **Audio Pipeline** | **100%** | Recompiled AX microcode; its output matches Dolphin's sample for sample on the title music; Wii Remote speaker sound is played. |
 | **Game Flow** | **90%** | A full 17-round Board Game Island game; every Free Play minigame played by hand, all 79 without faults. |
-| **Input System** | **75%** | Emulated Wii Remote over emulated Bluetooth; keyboard, mouse, up to four gamepads and real Wii Remotes. |
-| **PC Features** | **75%** | Single-file launcher, in-game options menu (F10), key bindings, save backups, custom textures; ultrawide and online are still planned. |
+| **Input System** | **80%** | Emulated Wii Remote over emulated Bluetooth; keyboard, mouse, up to four gamepads and real Wii Remotes; an optional window on the minigame explanation screens lists the PC key of each button. |
+| **PC Features** | **80%** | Single-file launcher, in-game options menu (F10), key bindings, controls window, save backups, custom textures; ultrawide and online are still planned. |
 
 ### Known Limitations
 

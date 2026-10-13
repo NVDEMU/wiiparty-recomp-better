@@ -703,8 +703,22 @@ void test_key_defaults() {
     CHECK(format(keys.of(Action::Plus)) == "Plus,NumPlus");
     CHECK(format(keys.of(Action::Minus)) == "Minus,NumMinus");
     CHECK(format(keys.of(Action::Home)) == "H");
-    CHECK(format(keys.of(Action::Up)) == "Up,A");
-    CHECK(format(keys.of(Action::Right)) == "Right,W");
+    CHECK(format(keys.of(Action::Up)) == "Up,W");
+    CHECK(format(keys.of(Action::Right)) == "Right,D");
+    std::vector<std::string> ignored;
+    auto old_file = [](const std::string& key) {
+        return std::string(key == "keys.up" ? "Up,A" : key == "keys.down" ? "Down,D" : key == "keys.left" ? "left, s" : key == "keys.right" ? "Right,W" : key == "keys.a" ? "Z" : "");
+    };
+    CHECK(legacy_directions(old_file));
+    Bindings upgraded = load(old_file, ignored);
+    CHECK(format(upgraded.of(Action::Left)) == "Left,A");
+    CHECK(format(upgraded.of(Action::Down)) == "Down,S");
+    CHECK(format(upgraded.of(Action::A)) == "Z");
+    auto custom_file = [](const std::string& key) {
+        return std::string(key == "keys.up" ? "Up,A" : key == "keys.down" ? "Down,D" : key == "keys.left" ? "Left,S" : key == "keys.right" ? "Right,K" : "");
+    };
+    CHECK(!legacy_directions(custom_file));
+    CHECK(format(load(custom_file, ignored).of(Action::Up)) == "Up,A");
     CHECK(format(keys.of(Action::Shake)) == "MouseMiddle,LeftShift");
     CHECK(format(keys.of(Action::SwingUp)) == "WheelUp,T");
     CHECK(format(keys.of(Action::SwingDown)) == "WheelDown,G");
@@ -821,6 +835,40 @@ void test_live_settings() {
     CHECK(!mute());
     CHECK(scale() == 1);
     std::remove(path);
+}
+
+void test_controls_hint() {
+    for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
+        wp::ui::set_language(language);
+        for (const char* key : {"hint.title", "hint.pointer", "hint.mouse", "hint.dpad", "hint.shake", "hint.swing", "hint.tilt", "input.controls_hint"}) {
+            CHECK(std::string(key) != wp::ui::label(key));
+        }
+    }
+    wp::ui::set_language(wp::ui::Language::English);
+    std::vector<wp::options::HintRow> rows = wp::options::hint_rows(wp::keymap::defaults(), wp::ui::Language::English);
+    CHECK(rows.size() == 11);
+    CHECK(rows[0].name == "Pointer");
+    CHECK(rows[1].name == "A" && rows[1].keys == "Enter/Space/MouseLeft");
+    CHECK(rows[7].keys == "Up/W  Down/S  Left/A  Right/D");
+    wp::keymap::Bindings bindings = wp::keymap::defaults();
+    bindings.codes[static_cast<size_t>(wp::keymap::Action::Shake)].clear();
+    bindings.codes[static_cast<size_t>(wp::keymap::Action::B)] = {'X'};
+    rows = wp::options::hint_rows(bindings, wp::ui::Language::English);
+    CHECK(wp::options::hint_rows(bindings, wp::ui::Language::Spanish)[0].name == "Puntero");
+    CHECK(rows.size() == 10);
+    CHECK(rows[2].name == "B" && rows[2].keys == "X");
+
+    wp::options::InstructionWatch watch;
+    CHECK(!watch.update({}, "inst", "mg"));
+    CHECK(!watch.update({"menu"}, "inst", "mg"));
+    CHECK(watch.update({"inst"}, "inst", "mg"));
+    CHECK(!watch.update({"mg223"}, "inst", "mg"));
+    CHECK(!watch.update({"inst"}, "inst", "mg"));
+    CHECK(!watch.update({}, "inst", "mg"));
+    CHECK(!watch.update({"inst"}, "inst", "mg"));
+    CHECK(!watch.update({"mr031"}, "inst", "mg"));
+    CHECK(watch.update({"inst"}, "inst", "mg"));
+    CHECK(!watch.update({"inst"}, nullptr, nullptr));
 }
 
 void test_options_menu() {
@@ -1140,6 +1188,7 @@ int main() {
     test_screenshot_names();
     test_live_settings();
     test_options_menu();
+    test_controls_hint();
     test_options_repeat_and_layout();
     test_options_render();
     test_software_fma();

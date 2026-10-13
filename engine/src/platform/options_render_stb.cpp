@@ -364,6 +364,55 @@ Image render(const Menu& menu, int client_height) {
     return image;
 }
 
+Image render_hint(const std::vector<HintRow>& rows, const std::string& title, int client_width, int client_height) {
+    Image image;
+    if (rows.empty() || client_width <= 0 || client_height <= 0 || !font(false).ok) {
+        return image;
+    }
+    int unit = std::clamp(client_height / 60, 9, 24);
+    int padding = unit;
+    int row_height = unit * 3 / 2;
+    int title_height = unit * 2;
+    int gap = unit * 2;
+    Face title_face = make_face(true, unit * 5 / 4);
+    Face row_face = make_face(false, unit);
+    int name_width = 0;
+    int keys_width = 0;
+    for (const HintRow& row : rows) {
+        name_width = std::max(name_width, static_cast<int>(std::ceil(text_width(row_face, decode(row.name)))));
+        keys_width = std::max(keys_width, static_cast<int>(std::ceil(text_width(row_face, decode(row.keys)))));
+    }
+    int title_width = static_cast<int>(std::ceil(text_width(title_face, decode(title))));
+    int margin = unit * 2;
+    int width = std::min(client_width - margin * 2, std::max(title_width, name_width + gap + keys_width) + padding * 2);
+    int height = padding * 2 + title_height + static_cast<int>(rows.size()) * row_height;
+    if (width <= padding * 2 || height > client_height - margin * 2) {
+        return image;
+    }
+    Canvas canvas{width, height, std::vector<uint32_t>(static_cast<size_t>(width) * height, kPanel)};
+    int stroke = std::max(2, unit / 7);
+    canvas.text(title_face, kText, title, padding, padding, width - padding, padding + title_height - unit / 2, Align::Left, true);
+    int rows_top = padding + title_height;
+    canvas.fill(padding, rows_top - unit / 2, width - padding, rows_top - unit / 2 + stroke / 2 + 1, kSeparator);
+    for (size_t i = 0; i < rows.size(); i++) {
+        int top = rows_top + static_cast<int>(i) * row_height;
+        canvas.text(row_face, kMuted, rows[i].name, padding, top, padding + name_width, top + row_height, Align::Left, true);
+        canvas.text(row_face, kText, rows[i].keys, padding + name_width + gap, top, width - padding, top + row_height, Align::Left, true);
+    }
+    image.width = static_cast<uint32_t>(client_width);
+    image.height = static_cast<uint32_t>(client_height);
+    image.pixels.assign(static_cast<size_t>(client_width) * client_height, 0);
+    int left = client_width - width - margin;
+    int radius = unit * 3 / 4;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            image.pixels[static_cast<size_t>(margin + y) * image.width + static_cast<size_t>(left + x)] =
+                (canvas.pixels[static_cast<size_t>(y) * width + x] & 0xFFFFFF) | (corner_alpha(x, y, width, height, radius) << 24);
+        }
+    }
+    return image;
+}
+
 Image render_titlebar(int width, int height, const std::string& title, int hover, int pressed, bool maximized, bool focused) {
     Image image;
     if (width <= 0 || height <= 0) {

@@ -20,6 +20,7 @@ constexpr Label kEnglishLabels[] = {
     {"input.real_wiimote_mouse", "Aim Wii Remote 1 with the mouse"},
     {"input.wake_on_mouse", "Reconnect with the mouse"},
     {"input.hide_cursor", "Hide the mouse cursor"},
+    {"input.controls_hint", "Controls window on instruction screens"},
     {"system.interface_language", "Interface language"},
     {"system.language", "Console language"},
     {"system.pal60", "60 Hz (PAL60)"},
@@ -28,6 +29,13 @@ constexpr Label kEnglishLabels[] = {
     {"audio.mute", "Mute"},
     {"audio.wiimote_speaker", "Wii Remote speaker"},
     {"saves.backups", "Save backups kept"},
+    {"hint.title", "Controls on PC"},
+    {"hint.pointer", "Pointer"},
+    {"hint.mouse", "Mouse"},
+    {"hint.dpad", "D-pad"},
+    {"hint.shake", "Shake"},
+    {"hint.swing", "Swing"},
+    {"hint.tilt", "Tilt"},
 };
 
 constexpr Label kSpanishLabels[] = {
@@ -43,6 +51,7 @@ constexpr Label kSpanishLabels[] = {
     {"input.real_wiimote_mouse", "Apuntar el Wii Remote 1 con el ratón"},
     {"input.wake_on_mouse", "Reconectar con el ratón"},
     {"input.hide_cursor", "Ocultar el cursor del ratón"},
+    {"input.controls_hint", "Ventana de controles en las explicaciones"},
     {"system.interface_language", "Idioma de la interfaz"},
     {"system.language", "Idioma de la consola"},
     {"system.pal60", "60 Hz (PAL60)"},
@@ -51,6 +60,13 @@ constexpr Label kSpanishLabels[] = {
     {"audio.mute", "Silenciar"},
     {"audio.wiimote_speaker", "Altavoz del Wii Remote"},
     {"saves.backups", "Copias de la partida"},
+    {"hint.title", "Controles en PC"},
+    {"hint.pointer", "Puntero"},
+    {"hint.mouse", "Ratón"},
+    {"hint.dpad", "Cruceta"},
+    {"hint.shake", "Agitar"},
+    {"hint.swing", "Golpe"},
+    {"hint.tilt", "Inclinar"},
 };
 
 constexpr Label kGalicianLabels[] = {
@@ -66,6 +82,7 @@ constexpr Label kGalicianLabels[] = {
     {"input.real_wiimote_mouse", "Apuntar o Wii Remote 1 co rato"},
     {"input.wake_on_mouse", "Reconectar co rato"},
     {"input.hide_cursor", "Agochar o cursor do rato"},
+    {"input.controls_hint", "Xanela de controis nas explicacións"},
     {"system.interface_language", "Idioma da interface"},
     {"system.language", "Idioma da consola"},
     {"system.pal60", "60 Hz (PAL60)"},
@@ -74,6 +91,13 @@ constexpr Label kGalicianLabels[] = {
     {"audio.mute", "Silenciar"},
     {"audio.wiimote_speaker", "Altofalante do Wii Remote"},
     {"saves.backups", "Copias da partida"},
+    {"hint.title", "Controis no PC"},
+    {"hint.pointer", "Punteiro"},
+    {"hint.mouse", "Rato"},
+    {"hint.dpad", "Cruceta"},
+    {"hint.shake", "Axitar"},
+    {"hint.swing", "Golpe"},
+    {"hint.tilt", "Inclinar"},
 };
 
 constexpr Text kEnglish{"FPS",
@@ -123,24 +147,38 @@ constexpr Text kGalician{"FPS",
 
 std::atomic<const Text*> g_text{&kEnglish};
 
+const char* label_in(const Text& current, const char* key) {
+    for (size_t i = 0; i < current.label_count; i++) {
+        if (std::strcmp(current.labels[i].key, key) == 0) {
+            return current.labels[i].text;
+        }
+    }
+    return key;
 }
 
-void set_language(Language language) {
+const Text& text_for(Language language) {
     switch (language) {
-    case Language::English:
-        g_text = &kEnglish;
-        break;
     case Language::Spanish:
-        g_text = &kSpanish;
-        break;
+        return kSpanish;
     case Language::Galician:
-        g_text = &kGalician;
-        break;
+        return kGalician;
+    default:
+        return kEnglish;
     }
 }
 
+}
+
+void set_language(Language language) {
+    g_text = &text_for(language);
+}
+
+Language language_of(const std::string& code) {
+    return code == "es" ? Language::Spanish : code == "gl" ? Language::Galician : Language::English;
+}
+
 void set_language(const std::string& code) {
-    set_language(code == "es" ? Language::Spanish : code == "gl" ? Language::Galician : Language::English);
+    set_language(language_of(code));
 }
 
 const Text& text() {
@@ -148,13 +186,11 @@ const Text& text() {
 }
 
 const char* label(const char* key) {
-    const Text& current = text();
-    for (size_t i = 0; i < current.label_count; i++) {
-        if (std::strcmp(current.labels[i].key, key) == 0) {
-            return current.labels[i].text;
-        }
-    }
-    return key;
+    return label_in(text(), key);
+}
+
+const char* label(const char* key, Language language) {
+    return label_in(text_for(language), key);
 }
 
 }

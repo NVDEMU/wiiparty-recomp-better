@@ -22,6 +22,8 @@ constexpr Description kDescription = {
     "boot",
     kSidewaysModules,
     std::size(kSidewaysModules),
+    "inst",
+    "mg",
 };
 
 }

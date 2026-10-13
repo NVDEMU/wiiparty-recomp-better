@@ -33,5 +33,7 @@ void set_language(Language language);
 void set_language(const std::string& code);
 const Text& text();
 const char* label(const char* key);
+const char* label(const char* key, Language language);
+Language language_of(const std::string& code);
 
 }

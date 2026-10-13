@@ -6,8 +6,12 @@
 #include <string>
 #include <vector>
 
+#include "wp/game.h"
 #include "wp/gamepad.h"
 #include "wp/input.h"
+#include "wp/log.h"
+#include "wp/nand.h"
+#include "wp/runtime.h"
 #include "wp/settings.h"
 #include "wp/ui_text.h"
 #include "wp/video.h"
@@ -43,8 +47,58 @@ int client_height() {
     return video::client_size(width, height) ? height : 0;
 }
 
+bool hint_enabled() {
+    static const settings::LiveFlag value("input.controls_hint", "WP_CONTROLS_HINT");
+    return value();
+}
+
+InstructionWatch g_instruction;
+bool g_hint_shown = false;
+int g_hint_width = 0;
+int g_hint_height = 0;
+
+bool instruction_screen() {
+    static std::chrono::steady_clock::time_point next;
+    static bool cached = false;
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    if (now >= next) {
+        next = now + std::chrono::milliseconds(100);
+        const game::Description& game = game::description();
+        cached = g_instruction.update(loaded_module_names(), game.instruction_module, game.minigame_prefix);
+    }
+    return cached;
+}
+
+ui::Language hint_language() {
+    ui::Language chosen = ui::language_of(settings::text("system.interface_language", "WP_INTERFACE_LANGUAGE"));
+    return chosen == ui::Language::English && nand::console_is_spanish() ? ui::Language::Spanish : chosen;
+}
+
+void update_hint() {
+    int width = 0;
+    int height = 0;
+    bool wanted = hint_enabled() && !g_menu.open() && video::client_size(width, height) && instruction_screen();
+    if (wanted) {
+        if (!g_hint_shown || width != g_hint_width || height != g_hint_height) {
+            if (!g_hint_shown) {
+                log::write("options", "controls window shown");
+            }
+            g_hint_shown = true;
+            g_hint_width = width;
+            g_hint_height = height;
+            ui::Language language = hint_language();
+            show_overlay(render_hint(hint_rows(input::bindings(), language), ui::label("hint.title", language), width, height));
+        }
+    } else if (g_hint_shown) {
+        g_hint_shown = false;
+        hide_overlay();
+        log::write("options", "controls window hidden");
+    }
+}
+
 void sync(void*) {
     if (g_menu.open()) {
+        g_hint_shown = false;
         show_overlay(render(g_menu, client_height()));
         if (!g_shown) {
             g_shown = true;
@@ -154,6 +208,7 @@ void menu_hover(void* handle, int x, int y) {
 
 std::string poll_gamepads(void* window) {
     static Repeat repeat(kRepeating, kRepeatDelay, kRepeatInterval);
+    update_hint();
     int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     bool focused = video::window_focused();
     uint32_t fired = repeat.update(focused ? gamepad::menu_buttons() : 0, now);

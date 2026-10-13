@@ -68,6 +68,8 @@ struct Bindings {
 };
 
 Bindings defaults();
+bool legacy_directions(const std::function<std::string(const std::string& key)>& value);
+bool direction(size_t index);
 Bindings load(const std::function<std::string(const std::string& key)>& value, std::vector<std::string>& invalid);
 
 }

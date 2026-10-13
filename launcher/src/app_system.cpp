@@ -50,6 +50,29 @@ std::string system_name() {
 #endif
 }
 
+std::string processor_name() {
+    std::string name;
+#ifdef _WIN32
+    wchar_t buffer[256];
+    DWORD size = sizeof(buffer);
+    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"ProcessorNameString", RRF_RT_REG_SZ, nullptr, buffer, &size) == ERROR_SUCCESS) {
+        name = utf8_of(fs::path(buffer));
+    }
+#else
+    std::ifstream file("/proc/cpuinfo");
+    for (std::string line; std::getline(file, line);) {
+        size_t colon = line.find(':');
+        if (line.rfind("model name", 0) == 0 && colon != std::string::npos) {
+            name = line.substr(colon + 1);
+            break;
+        }
+    }
+#endif
+    size_t first = name.find_first_not_of(' ');
+    size_t last = name.find_last_not_of(' ');
+    return first == std::string::npos ? std::string() : name.substr(first, last - first + 1);
+}
+
 struct Graphics {
     std::string name;
     uint64_t memory = 0;
@@ -195,8 +218,9 @@ std::vector<std::pair<std::string, std::string>> App::diagnostics() {
     std::string revision = stored_revision(project_.root);
     lines.emplace_back(t.diag_game, project_.built() && !id.empty() ? id + (revision.empty() ? "" : ", " + revision) : std::string(t.diag_game_missing));
     lines.emplace_back(t.diag_system, system_name());
-    lines.emplace_back(t.diag_processor, format(t.diag_processor_value, std::to_string(SDL_GetNumLogicalCPUCores()),
-                                                one_decimal(static_cast<float>(SDL_GetSystemRAM()) / 1024.0f)));
+    std::string processor = processor_name();
+    lines.emplace_back(t.diag_processor, (processor.empty() ? "" : processor + ", ") + format(t.diag_processor_value, std::to_string(SDL_GetNumLogicalCPUCores()),
+                                                                                              one_decimal(static_cast<float>(SDL_GetSystemRAM()) / 1024.0f)));
     std::string graphics;
     for (const Graphics& card : graphics_cards(project_.root / "logs" / "game.log")) {
         if (!graphics.empty()) {
