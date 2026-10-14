@@ -1360,3 +1360,25 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-012 (game) and 2610-013 (launcher). Corrects the Mii record fields listed above; progress figures unchanged (overall 94%).
 
+
+## Install folders with spaces broke the icon step (2026-10-14)
+
+- Report from a user (offline pack, install folder `D:\Games\Wii Party\WiiPartyRecomp`): `windres` failed on `wiiparty.rc` with `cc1.exe: fatal error: Party/WiiPartyRecomp/...: No such file or directory`, so the game never linked.
+- Cause: GNU windres 2.45.1 hands its include directories and the source path to its preprocessor without quoting, so any space in them splits the argument. Reproduced with a folder named `wp space test` (absolute path fails, a relative path with the working directory set to the `.rc` folder works).
+- Fix in `games/wiiparty/CMakeLists.txt`: the resource object is made by a custom command that runs windres in the `res` folder with the relative name `wiiparty.rc` and no `-I` flags, and is added as an object. Checked with the real build and with a small project whose source and build folders contain spaces. Until a release carries it, the workaround is an install folder without spaces.
+
+## Slow MinGW download in online mode (2026-10-14)
+
+- Report: the online install stalled on MinGW; the link took about an hour. The only source was `nuwen.net/files/mingw/mingw-20.0.exe` (65.5 MB, one small server).
+- Change in `launcher/src/toolchain.cpp`: each download tries a mirror first when the package has one, then the original URL, and curl now gives up on a stalled or slow transfer (`--connect-timeout 20`, `--speed-limit 50000 --speed-time 30`, `--retry 2`) so the next source is tried instead of hanging. The MinGW entry lists `https://github.com/arelkair/wiiparty-recomp/releases/download/tools-1/mingw-20.0.exe` as its mirror; until that release asset exists the request returns 404 at once and the original URL is used. The SHA-256 check is unchanged, so a mirror cannot change the tool.
+
+## Mii editor replaced by a link and file loading (2026-10-14)
+
+- At the user's request the launcher's own Mii editor (field dropdowns, approximate preview, create and duplicate) was removed. The Miis page now has a button that opens the online editor (`https://mii.nxw.pw/`, needs an account and an internet connection; the launcher does not talk to it), a file picker that loads Wii Mii files (`.mii` of 74 or 76 bytes, several joined, or a whole `RFL_DB.dat`) into the console database, and the list of Miis in that database with a delete button for each.
+- Kept from the editor: `wp::mii::Database` (load, add with a new ID and the local system ID, remove, atomic save with a recomputed CRC-16), `import_records` and the damaged-database handling (a copy is kept as `.bak`). Removed: the field table, record accessors, default record, preview and their labels. The editor field layout and the in-game checks are described in the two sections above and remain as a record.
+- PC features goes back to 80% and overall to 93% (the editor was what raised it). Not verified: that the online editor can export the Wii format; the page says so and the user asserted it.
+
+## Version 0.1.13-alpha (2026-10-14)
+
+- Build 2610-014 (game) and 2610-015 (launcher). Contents: the icon step that failed in install folders with spaces, downloads that give up on a stalled transfer, and the Miis page described above. The mirror URL of the MinGW download was not added: the original source stays the only one and the offline pack is the answer for slow connections.
+

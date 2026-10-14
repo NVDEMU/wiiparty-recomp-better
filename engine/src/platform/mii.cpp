@@ -13,51 +13,11 @@ namespace {
 constexpr uint8_t kTail[] = {0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x52, 0x4E, 0x48, 0x44, 0xFF, 0xFF, 0xFF, 0xFF};
 constexpr size_t kTailOffset = 0x1CEC;
 constexpr size_t kNameOffset = 0x02;
-constexpr size_t kCreatorOffset = 0x36;
 constexpr size_t kIdOffset = 0x18;
 constexpr size_t kSystemIdOffset = 0x1C;
 constexpr uint32_t kConsoleCreated = 0x80000000u;
 constexpr uint32_t kIdMask = 0x1FFFFFFFu;
 constexpr uint8_t kDefaultSystemId[4] = {0x05, 0x03, 0x04, 0x05};
-
-const std::vector<Field> kFields = {
-    {"gender", 0x00, 2, 14, 1, 1},         {"birth_month", 0x00, 2, 10, 4, 12},      {"birth_day", 0x00, 2, 5, 5, 31},
-    {"favorite_color", 0x00, 2, 1, 4, 11}, {"favorite", 0x00, 2, 0, 1, 1},           {"height", 0x16, 1, 0, 7, 127},
-    {"weight", 0x17, 1, 0, 7, 127},        {"face_shape", 0x20, 2, 13, 3, 7},        {"skin_color", 0x20, 2, 10, 3, 5},
-    {"facial_feature", 0x20, 2, 6, 4, 11}, {"hair_type", 0x22, 2, 9, 7, 71},         {"hair_color", 0x22, 2, 6, 3, 7},
-    {"hair_flip", 0x22, 2, 5, 1, 1},       {"eyebrow_type", 0x24, 4, 27, 5, 23},     {"eyebrow_rotation", 0x24, 4, 22, 4, 11},
-    {"eyebrow_color", 0x24, 4, 13, 3, 7},  {"eyebrow_size", 0x24, 4, 9, 4, 8},       {"eyebrow_vertical", 0x24, 4, 4, 5, 18, 3},
-    {"eyebrow_spacing", 0x24, 4, 0, 4, 12}, {"eye_type", 0x28, 4, 26, 6, 47},         {"eye_rotation", 0x28, 4, 21, 3, 7},
-    {"eye_vertical", 0x28, 4, 16, 5, 18},  {"eye_color", 0x28, 4, 13, 3, 5},         {"eye_size", 0x28, 4, 9, 3, 7},
-    {"eye_spacing", 0x28, 4, 5, 4, 12},    {"nose_type", 0x2C, 2, 12, 4, 11},        {"nose_size", 0x2C, 2, 8, 4, 8},
-    {"nose_vertical", 0x2C, 2, 3, 5, 18},  {"mouth_type", 0x2E, 2, 11, 5, 23},       {"mouth_color", 0x2E, 2, 9, 2, 2},
-    {"mouth_size", 0x2E, 2, 5, 4, 8},      {"mouth_vertical", 0x2E, 2, 0, 5, 18},    {"glasses_type", 0x30, 2, 12, 4, 8},
-    {"glasses_color", 0x30, 2, 9, 3, 5},  {"glasses_size", 0x30, 2, 5, 3, 7},       {"glasses_vertical", 0x30, 2, 0, 5, 20},
-    {"mustache_type", 0x32, 2, 14, 2, 3},  {"beard_type", 0x32, 2, 12, 2, 3},        {"facial_hair_color", 0x32, 2, 9, 3, 7},
-    {"mustache_size", 0x32, 2, 5, 4, 8},   {"mustache_vertical", 0x32, 2, 0, 5, 16}, {"mole", 0x34, 2, 15, 1, 1},
-    {"mole_size", 0x34, 2, 11, 4, 8},      {"mole_vertical", 0x34, 2, 6, 5, 30},     {"mole_horizontal", 0x34, 2, 1, 5, 16},
-};
-
-std::u16string to_utf16(const std::string& text) {
-    std::u16string result;
-    for (size_t i = 0; i < text.size();) {
-        unsigned char lead = static_cast<unsigned char>(text[i]);
-        int length = lead < 0x80 ? 1 : (lead >> 5) == 6 ? 2 : (lead >> 4) == 14 ? 3 : (lead >> 3) == 30 ? 4 : 1;
-        uint32_t value = length == 1 ? lead : lead & (0x7Fu >> length);
-        for (int k = 1; k < length && i + static_cast<size_t>(k) < text.size(); k++) {
-            value = (value << 6) | (static_cast<unsigned char>(text[i + static_cast<size_t>(k)]) & 0x3Fu);
-        }
-        i += static_cast<size_t>(length);
-        if (value >= 0x10000) {
-            value -= 0x10000;
-            result.push_back(static_cast<char16_t>(0xD800 + (value >> 10)));
-            result.push_back(static_cast<char16_t>(0xDC00 + (value & 0x3FF)));
-        } else {
-            result.push_back(static_cast<char16_t>(value));
-        }
-    }
-    return result;
-}
 
 std::string to_utf8(const std::u16string& text) {
     std::string result;
@@ -85,30 +45,6 @@ std::string to_utf8(const std::u16string& text) {
     return result;
 }
 
-std::string read_text(const Record& record, size_t offset) {
-    std::u16string text;
-    for (size_t i = 0; i < kNameLength; i++) {
-        char16_t unit = static_cast<char16_t>((record[offset + i * 2] << 8) | record[offset + i * 2 + 1]);
-        if (unit == 0) {
-            break;
-        }
-        text.push_back(unit);
-    }
-    return to_utf8(text);
-}
-
-void write_text(Record& record, size_t offset, const std::string& utf8) {
-    std::u16string text = to_utf16(utf8);
-    if (text.size() > kNameLength) {
-        text.resize(kNameLength);
-    }
-    for (size_t i = 0; i < kNameLength; i++) {
-        char16_t unit = i < text.size() ? text[i] : 0;
-        record[offset + i * 2] = static_cast<uint8_t>(unit >> 8);
-        record[offset + i * 2 + 1] = static_cast<uint8_t>(unit);
-    }
-}
-
 std::vector<uint8_t> blank_image() {
     std::vector<uint8_t> image(kFileSize, 0);
     image[0] = 'R';
@@ -126,55 +62,16 @@ uint32_t identifier_of(const Record& record) {
 
 }
 
-const std::vector<Field>& fields() {
-    return kFields;
-}
-
-const Field* find_field(const std::string& key) {
-    for (const Field& field : kFields) {
-        if (key == field.key) {
-            return &field;
-        }
-    }
-    return nullptr;
-}
-
-uint32_t get(const Record& record, const Field& field) {
-    uint32_t value = 0;
-    for (uint8_t i = 0; i < field.bytes; i++) {
-        value = (value << 8) | record[field.offset + i];
-    }
-    return (value >> field.shift) & ((1u << field.bits) - 1u);
-}
-
-void set(Record& record, const Field& field, uint32_t input) {
-    uint32_t value = 0;
-    for (uint8_t i = 0; i < field.bytes; i++) {
-        value = (value << 8) | record[field.offset + i];
-    }
-    uint32_t mask = ((1u << field.bits) - 1u) << field.shift;
-    uint32_t limit = std::min<uint32_t>(field.maximum, (1u << field.bits) - 1u);
-    input = std::max<uint32_t>(std::min(input, limit), field.minimum);
-    value = (value & ~mask) | ((input << field.shift) & mask);
-    for (uint8_t i = 0; i < field.bytes; i++) {
-        record[field.offset + i] = static_cast<uint8_t>(value >> (8 * (field.bytes - 1 - i)));
-    }
-}
-
 std::string name(const Record& record) {
-    return read_text(record, kNameOffset);
-}
-
-void set_name(Record& record, const std::string& utf8) {
-    write_text(record, kNameOffset, utf8);
-}
-
-std::string creator(const Record& record) {
-    return read_text(record, kCreatorOffset);
-}
-
-void set_creator(Record& record, const std::string& utf8) {
-    write_text(record, kCreatorOffset, utf8);
+    std::u16string text;
+    for (size_t i = 0; i < kNameLength; i++) {
+        char16_t unit = static_cast<char16_t>((record[kNameOffset + i * 2] << 8) | record[kNameOffset + i * 2 + 1]);
+        if (unit == 0) {
+            break;
+        }
+        text.push_back(unit);
+    }
+    return to_utf8(text);
 }
 
 bool occupied(const Record& record) {
@@ -189,28 +86,6 @@ bool occupied(const Record& record) {
         }
     }
     return false;
-}
-
-Record blank_record() {
-    return Record{};
-}
-
-Record default_record(const std::string& utf8_name) {
-    Record record = blank_record();
-    set_name(record, utf8_name);
-    const struct {
-        const char* key;
-        uint32_t value;
-    } defaults[] = {{"height", 63},           {"weight", 63},          {"hair_type", 33},          {"hair_color", 1},      {"eyebrow_type", 6},
-                    {"eyebrow_rotation", 6},  {"eyebrow_color", 1},    {"eyebrow_size", 4},     {"eyebrow_vertical", 10},   {"eyebrow_spacing", 2},  {"eye_type", 2},
-                    {"eye_rotation", 4},      {"eye_vertical", 12},    {"eye_size", 4},            {"eye_spacing", 2},      {"nose_type", 1},
-                    {"nose_size", 4},         {"nose_vertical", 9},    {"mouth_type", 23},         {"mouth_size", 4},       {"mouth_vertical", 13},
-                    {"glasses_size", 4},      {"glasses_vertical", 10}, {"mustache_size", 4},      {"mustache_vertical", 10}, {"mole_size", 4},
-                    {"mole_vertical", 20},    {"mole_horizontal", 2}};
-    for (const auto& entry : defaults) {
-        set(record, *find_field(entry.key), entry.value);
-    }
-    return record;
 }
 
 uint16_t crc16(const uint8_t* data, size_t size) {
@@ -240,9 +115,7 @@ std::vector<Record> import_records(const std::vector<uint8_t>& data) {
         return records;
     }
     constexpr size_t kStoreSize = kRecordSize + 2;
-    if (data.size() == kRecordSize) {
-        take(0);
-    } else if (data.size() == kStoreSize) {
+    if (data.size() == kRecordSize || data.size() == kStoreSize) {
         take(0);
     } else if (!data.empty() && data.size() % kStoreSize == 0 && data.size() / kStoreSize <= kSlots) {
         for (size_t offset = 0; offset < data.size(); offset += kStoreSize) {
@@ -381,7 +254,7 @@ size_t Database::add(Record record) {
 
 void Database::remove(size_t slot) {
     if (slot < kSlots) {
-        records_[slot] = blank_record();
+        records_[slot] = Record{};
     }
 }
 

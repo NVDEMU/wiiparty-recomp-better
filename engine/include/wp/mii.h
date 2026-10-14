@@ -19,29 +19,8 @@ constexpr size_t kNameLength = 10;
 
 using Record = std::array<uint8_t, kRecordSize>;
 
-struct Field {
-    const char* key;
-    uint8_t offset;
-    uint8_t bytes;
-    uint8_t shift;
-    uint8_t bits;
-    uint8_t maximum;
-    uint8_t minimum = 0;
-};
-
-const std::vector<Field>& fields();
-const Field* find_field(const std::string& key);
-uint32_t get(const Record& record, const Field& field);
-void set(Record& record, const Field& field, uint32_t value);
-
 std::string name(const Record& record);
-void set_name(Record& record, const std::string& utf8);
-std::string creator(const Record& record);
-void set_creator(Record& record, const std::string& utf8);
 bool occupied(const Record& record);
-
-Record blank_record();
-Record default_record(const std::string& utf8_name);
 
 uint16_t crc16(const uint8_t* data, size_t size);
 
@@ -59,7 +38,6 @@ public:
     size_t count() const;
     std::vector<size_t> used() const;
     const Record& at(size_t slot) const { return records_[slot]; }
-    Record& at(size_t slot) { return records_[slot]; }
     bool full() const;
     size_t add(Record record);
     void remove(size_t slot);

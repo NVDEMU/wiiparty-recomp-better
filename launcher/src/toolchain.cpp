@@ -21,6 +21,7 @@ struct Package {
     Packaging packaging;
     const char* folder;
     const char* bin;
+    const char* mirror = nullptr;
 };
 
 #ifdef _WIN32
@@ -171,9 +172,40 @@ std::vector<Step> Toolchain::preparation(const std::vector<ToolStatus>& tools, b
         std::string expected = package->sha256;
         Step download;
         download.title = format(t.step_download, name);
-        download.program = system_program("curl");
-        download.arguments = {"-L", "--fail", "--silent", "--show-error", "--create-dirs", "-o", utf8_of(archive), package->url};
         download.weight = 2.0f;
+        download.action = [archive, program = system_program("curl"), url = std::string(package->url),
+                           mirror = std::string(package->mirror ? package->mirror : ""), name](std::string& message) {
+            std::error_code error;
+            std::filesystem::create_directories(archive.parent_path(), error);
+            std::vector<std::string> sources;
+            if (!mirror.empty()) {
+                sources.push_back(mirror);
+            }
+            sources.push_back(url);
+            std::string last;
+            for (const std::string& source : sources) {
+                Process curl;
+                std::string failure;
+                if (!curl.start(program, {"-L", "--fail", "--silent", "--show-error", "--connect-timeout", "20", "--speed-limit", "50000", "--speed-time", "30",
+                                          "--retry", "2", "-o", utf8_of(archive), source},
+                                {}, false, failure)) {
+                    last = failure;
+                    continue;
+                }
+                std::string output;
+                char buffer[512];
+                for (size_t count; (count = curl.read(buffer, sizeof(buffer))) > 0;) {
+                    output.append(buffer, count);
+                }
+                if (curl.wait() == 0) {
+                    return true;
+                }
+                last = output;
+                std::filesystem::remove(archive, error);
+            }
+            message = format(texts().step_download, name) + ": " + last;
+            return false;
+        };
         steps.push_back(download);
         Step verify;
         verify.title = format(t.step_verify, name);

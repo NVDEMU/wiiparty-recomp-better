@@ -28,7 +28,13 @@ target_compile_options(wiiparty_code PRIVATE -Wall -Wextra -Wno-unused-label -Wn
 
 add_executable(wiiparty)
 if(WIN32)
-    target_sources(wiiparty PRIVATE res/wiiparty.rc)
+    set(WP_RC_OBJECT "${CMAKE_CURRENT_BINARY_DIR}/wiiparty_rc.o")
+    add_custom_command(OUTPUT "${WP_RC_OBJECT}"
+        COMMAND "${CMAKE_RC_COMPILER}" -O coff -i wiiparty.rc -o "${WP_RC_OBJECT}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/res/wiiparty.rc" "${CMAKE_CURRENT_SOURCE_DIR}/res/wiiparty.ico"
+        VERBATIM)
+    target_sources(wiiparty PRIVATE "${WP_RC_OBJECT}")
 endif()
 target_link_libraries(wiiparty PRIVATE wp_app "$<LINK_GROUP:RESCAN,wiiparty_code,wp_engine>")
 target_compile_options(wiiparty PRIVATE -Wall -Wextra)

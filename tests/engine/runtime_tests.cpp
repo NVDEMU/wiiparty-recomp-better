@@ -873,32 +873,24 @@ void test_controls_hint() {
 }
 
 void test_mii_database() {
+    auto sample = [](const char* text, uint32_t identifier) {
+        wp::mii::Record record{};
+        for (size_t i = 0; text[i] && i < 10; i++) {
+            record[2 + i * 2] = 0;
+            record[3 + i * 2] = static_cast<uint8_t>(text[i]);
+        }
+        for (size_t i = 0; i < 4; i++) {
+            record[0x18 + i] = static_cast<uint8_t>(identifier >> (24 - 8 * i));
+        }
+        record[0x1C] = 7;
+        return record;
+    };
     wp::mii::Database database;
     CHECK(database.count() == 0);
-    wp::mii::Record record = wp::mii::default_record("Tester");
-    CHECK(wp::mii::name(record) == "Tester");
-    wp::mii::set(record, *wp::mii::find_field("hair_type"), 71);
-    wp::mii::set(record, *wp::mii::find_field("hair_type"), 200);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_type")) == 71);
-    wp::mii::set(record, *wp::mii::find_field("eye_type"), 47);
-    wp::mii::set(record, *wp::mii::find_field("gender"), 1);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_type")) == 71);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("eye_type")) == 47);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("gender")) == 1);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("height")) == 63);
-    wp::mii::set(record, *wp::mii::find_field("eyebrow_vertical"), 0);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("eyebrow_vertical")) == 3);
-    wp::mii::set(record, *wp::mii::find_field("hair_color"), 7);
-    wp::mii::set(record, *wp::mii::find_field("hair_flip"), 1);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_color")) == 7);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_flip")) == 1);
-    wp::mii::set(record, *wp::mii::find_field("hair_flip"), 0);
-    CHECK(wp::mii::get(record, *wp::mii::find_field("hair_color")) == 7);
-    wp::mii::set_name(record, "Ana María Luisa García");
-    CHECK(wp::mii::name(record) == "Ana María ");
-    wp::mii::set_name(record, "Ana");
-    size_t first = database.add(record);
-    size_t second = database.add(wp::mii::default_record("Luis"));
+    CHECK(wp::mii::name(sample("Tester", 1)) == "Tester");
+    CHECK(!wp::mii::occupied(wp::mii::Record{}));
+    size_t first = database.add(sample("Ana", 0x80000001));
+    size_t second = database.add(sample("Luis", 0x80000002));
     CHECK(first == 0 && second == 1);
     CHECK(database.count() == 2);
     CHECK(std::memcmp(database.at(0).data() + 0x1C, database.at(1).data() + 0x1C, 4) == 0);
@@ -912,12 +904,11 @@ void test_mii_database() {
     CHECK(loaded.parse(bytes));
     CHECK(loaded.count() == 2);
     CHECK(wp::mii::name(loaded.at(1)) == "Luis");
-    CHECK(wp::mii::get(loaded.at(0), *wp::mii::find_field("hair_type")) == 71);
     bytes[10] ^= 1;
     CHECK(!loaded.parse(bytes));
     database.remove(0);
     CHECK(database.count() == 1);
-    CHECK(database.add(wp::mii::default_record("Eva")) == 0);
+    CHECK(database.add(sample("Eva", 0x80000003)) == 0);
     const char* path = "wp_mii_test.dat";
     CHECK(database.save(path));
     wp::mii::Database reloaded;
@@ -927,14 +918,14 @@ void test_mii_database() {
     {
         std::vector<uint8_t> single(wp::mii::kRecordSize);
         CHECK(wp::mii::import_records(single).empty());
-        wp::mii::Record sample = wp::mii::default_record("Imp");
-        single.assign(sample.begin(), sample.end());
+        wp::mii::Record one = sample("Imp", 0x80000010);
+        single.assign(one.begin(), one.end());
         CHECK(wp::mii::import_records(single).size() == 1);
-        std::vector<uint8_t> stored = single;
+        std::vector<uint8_t> stored_data = single;
         uint16_t crc = wp::mii::crc16(single.data(), single.size());
-        stored.push_back(static_cast<uint8_t>(crc >> 8));
-        stored.push_back(static_cast<uint8_t>(crc));
-        std::vector<wp::mii::Record> imported = wp::mii::import_records(stored);
+        stored_data.push_back(static_cast<uint8_t>(crc >> 8));
+        stored_data.push_back(static_cast<uint8_t>(crc));
+        std::vector<wp::mii::Record> imported = wp::mii::import_records(stored_data);
         CHECK(imported.size() == 1 && wp::mii::name(imported[0]) == "Imp");
         std::vector<uint8_t> two = single;
         two.insert(two.end(), single.begin(), single.end());
@@ -943,13 +934,8 @@ void test_mii_database() {
         CHECK(wp::mii::import_records(std::vector<uint8_t>(10, 1)).empty());
     }
     for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
-        for (const wp::mii::Field& field : wp::mii::fields()) {
-            std::string key = std::string("mii.") + field.key;
-            CHECK(key != wp::ui::label(key.c_str(), language));
-            CHECK(field.maximum <= (1u << field.bits) - 1u);
-        }
-        for (const char* key : {"mii.title", "mii.intro", "mii.new", "mii.duplicate", "mii.delete", "mii.none", "mii.count", "mii.damaged", "mii.group.general",
-                                "mii.group.mole", "mii.male", "mii.female", "mii.name"}) {
+        for (const char* key : {"mii.title", "mii.intro", "mii.online", "mii.online_detail", "mii.open_online", "mii.import", "mii.import_detail", "mii.choose_file",
+                                "mii.import_done", "mii.import_failed", "mii.none", "mii.count", "mii.damaged", "mii.delete"}) {
             CHECK(std::string(key) != wp::ui::label(key, language));
         }
     }

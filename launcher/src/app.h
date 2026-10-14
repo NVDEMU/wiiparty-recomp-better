@@ -166,9 +166,6 @@ private:
     bool packs_dirty_ = true;
     wp::mii::Database mii_database_;
     bool miis_dirty_ = true;
-    size_t miis_selected_ = 0;
-    size_t miis_name_slot_ = static_cast<size_t>(-1);
-    char miis_name_[64] = {};
     bool miis_save_failed_ = false;
     std::string versions_message_;
     bool versions_failed_ = false;

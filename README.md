@@ -3,7 +3,7 @@
 Static recompilation of Wii Party for native PC.
 
 > [!NOTE]
-> **Project Status:** Alpha. The game boots, reaches every menu and plays complete Board Game Island sessions and every Free Play minigame. Progress is estimated at **94%** overall.
+> **Project Status:** Alpha. The game boots, reaches every menu and plays complete Board Game Island sessions and every Free Play minigame. Progress is estimated at **93%** overall.
 
 ![Project progress](docs/progress.svg)
 
@@ -29,7 +29,7 @@ Tracked in `games/wiiparty/analysis/progress.csv`:
 | **Audio Pipeline** | **100%** | Recompiled AX microcode; its output matches Dolphin's sample for sample on the title music; Wii Remote speaker sound is played. |
 | **Game Flow** | **90%** | A full 17-round Board Game Island game; every Free Play minigame played by hand, all 79 without faults. |
 | **Input System** | **80%** | Emulated Wii Remote over emulated Bluetooth; keyboard, mouse, up to four gamepads and real Wii Remotes; an optional window on the minigame explanation screens lists the PC key of each button. |
-| **PC Features** | **85%** | Single-file launcher, Mii editor, in-game options menu (F10), key bindings, controls window, save backups, custom textures; ultrawide and online are still planned. |
+| **PC Features** | **80%** | Single-file launcher, Mii file loading, in-game options menu (F10), key bindings, controls window, save backups, custom textures; ultrawide and online are still planned. |
 
 ### Known Limitations
 
@@ -108,7 +108,7 @@ The project's scope is the original game, faithful and optimized.
 | **Ultrawide support** | Wider-than-16:9 windows without stretching the picture. Not started. |
 | **Online play with friends** | A fourth, green **Online** button next to the three buttons at the bottom of the main menu. There is no server: players connect directly, and the game exchanges only each player's inputs in lockstep. Not started. |
 
-The launcher has a Miis page that creates, edits and imports (.mii files or a Wii Mii database) the console Miis the game lists, up to 100, with an approximate preview.
+The launcher has a Miis page that links an online Mii editor and loads the Wii Mii files made with it (.mii files or a Wii Mii database) into the console Miis the game lists, up to 100. A Mii editor of its own is not planned.
 
 ### Platforms
 
