@@ -8,6 +8,7 @@
 #include "wp/input.h"
 #include "wp/keymap.h"
 #include "wp/padmap.h"
+#include "wp/ui_text.h"
 
 namespace {
 
@@ -19,12 +20,19 @@ const char* physical_label(int physical) {
     const char* labels[] = {t.pad_south,      t.pad_east,          t.pad_west,           t.pad_north,    t.pad_back,      t.pad_guide,
                             t.pad_start,      t.pad_left_stick,    t.pad_right_stick,    t.pad_left_shoulder, t.pad_right_shoulder,
                             t.pad_dpad_up,    t.pad_dpad_down,     t.pad_dpad_left,      t.pad_dpad_right,    t.pad_left_trigger, t.pad_right_trigger};
-    return physical >= 0 && physical < wp::padmap::kPhysicalCount ? labels[physical] : t.pad_auto;
+    if (physical > wp::padmap::kRightTrigger && physical < wp::padmap::kPhysicalCount) {
+        std::string key = std::string("pad.") + wp::padmap::physical_name(physical);
+        return wp::ui::label(key.c_str());
+    }
+    return physical >= 0 && physical <= wp::padmap::kRightTrigger ? labels[physical] : t.pad_auto;
 }
 
 const char* wii_button_label(size_t action) {
     const char* labels[] = {"A", "B", "1", "2", "+", "−", "HOME"};
-    return action < wp::padmap::kActionCount ? labels[action] : "";
+    if (action < wp::padmap::kButtonActionCount) {
+        return labels[action];
+    }
+    return action < wp::padmap::kActionCount ? action_name(wp::padmap::action_name(action)) : "";
 }
 
 std::string held_names(uint32_t buttons) {
@@ -110,6 +118,12 @@ uint32_t App::gamepad_buttons(SDL_Gamepad* pad) {
     }
     pressed.held[wp::padmap::kLeftTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f > kTriggerThreshold;
     pressed.held[wp::padmap::kRightTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f > kTriggerThreshold;
+    float right_x = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTX) / 32767.0f;
+    float right_y = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTY) / 32767.0f;
+    pressed.held[wp::padmap::kRightStickUp] = right_y < -kStickThreshold;
+    pressed.held[wp::padmap::kRightStickDown] = right_y > kStickThreshold;
+    pressed.held[wp::padmap::kRightStickLeft] = right_x < -kStickThreshold;
+    pressed.held[wp::padmap::kRightStickRight] = right_x > kStickThreshold;
     wp::padmap::Mapping mapping{};
     for (size_t i = 0; i < wp::padmap::kActionCount; i++) {
         mapping[i] = wp::padmap::physical_from_name(value(wp::padmap::setting_key(i)));
@@ -184,6 +198,8 @@ void App::pad_map_section(float width) {
     ImVec2 at = ImGui::GetCursorScreenPos();
     ImGui::SetCursorScreenPos(at + ImVec2(px(18), px(14)));
     ui::text(t.pad_map_detail, Font::Regular, ui::size::kDetail, p.secondary, width - px(36));
+    ImGui::SetCursorScreenPos(ImVec2(at.x + px(18), ImGui::GetCursorScreenPos().y + px(10)));
+    ui::text(wp::ui::label("pad.motion_help"), Font::Regular, ui::size::kDetail, p.secondary, width - px(36));
     ImGui::SetCursorScreenPos(ImVec2(at.x, ImGui::GetCursorScreenPos().y + px(14)));
     std::vector<std::string> labels = {t.pad_auto};
     for (int i = 0; i < wp::padmap::kPhysicalCount; i++) {

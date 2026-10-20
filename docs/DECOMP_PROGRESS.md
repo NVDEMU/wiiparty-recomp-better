@@ -1382,3 +1382,16 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-014 (game) and 2610-015 (launcher). Contents: the icon step that failed in install folders with spaces, downloads that give up on a stalled transfer, and the Miis page described above. The mirror URL of the MinGW download was not added: the original source stays the only one and the offline pack is the answer for slow connections.
 
+## Gamepad motion, player 1 without a pad and ignoring a pad (2026-10-20)
+
+- Report from a user who plays through Parsec: Parsec shows the guest's controller as two Xbox 360 pads, the first pad connected goes to player 1 (who also has the keyboard and mouse) and the second to player 2; with a host pad the guest's two pads land on players 2 and 3. Minigames that need a shake, a swing or a tilt (Wheel of Fortune, the logs, Friendship Test, Man Overboard) could not be played with a pad, because pads only produced buttons; the keyboard had `Shift`, `T`/`G`, `Q`/`E`/`R`/`F`.
+- Pad motion (`engine/src/input/padmap.cpp`, `padmap::kActionCount` 7 to 14): seven new pad actions (`pad.shake`, `pad.swing_up`, `pad.swing_down`, `pad.tilt_left`, `pad.tilt_right`, `pad.tilt_up`, `pad.tilt_down`), each bindable to any button, trigger or right stick direction (four new physical inputs). Default when left on automatic: the left trigger shakes; while the left shoulder button is held, the right stick tilts and up or down on the D-pad swings. While the shoulder button is held the right stick no longer moves the pointer and the D-pad no longer gives directions, so one gesture does one thing. The bits are the same `input::kMotion*` flags the keyboard uses, so `wiimote.cpp` needed no change, and they apply in sideways minigames too. A button bound to a motion is taken out of the automatic button mapping.
+- `input.player1_keyboard_only` (default off, applies to pads connected after the change): pads start at player 2, so a remote pad no longer takes player 1.
+- `input.ignored_gamepads` (hidden from the menu lists): `name#n;name#n`, where n counts the pads with the same name in SDL's order. The launcher's Controls page has a switch per connected pad and shows the player each one gets; the engine re-checks the list whenever the settings change, closing a pad that became ignored and opening one that was allowed again. This lets a user switch off the duplicate Parsec pad without the engine guessing which identical pads are duplicates.
+- Tests: `test_pad_motion` (default scheme, sideways, custom bindings, exclusivity with button bindings, the ignore list helpers, labels in three languages, the new settings). Not tried with a real pad or with Parsec.
+- Not done: motion from the mouse (holding a key to turn mouse movement into swing, tilt and circular shakes), kept for later.
+
+## Version 0.1.14-alpha (2026-10-20)
+
+- Build 2610-016 (game) and 2610-017 (launcher). Contents: the three pad changes above.
+

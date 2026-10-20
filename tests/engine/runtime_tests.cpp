@@ -941,6 +941,59 @@ void test_mii_database() {
     }
 }
 
+void test_pad_motion() {
+    using wp::padmap::Physical;
+    wp::padmap::Mapping automatic;
+    automatic.fill(wp::padmap::kAutomatic);
+    wp::padmap::Pressed pressed;
+    CHECK(wp::padmap::buttons(pressed, false, automatic) == 0);
+    pressed.held[wp::padmap::kLeftTrigger] = true;
+    CHECK(wp::padmap::buttons(pressed, false, automatic) == wp::input::kMotionShake);
+    CHECK(wp::padmap::buttons(pressed, true, automatic) == wp::input::kMotionShake);
+    pressed = wp::padmap::Pressed{};
+    pressed.held[wp::padmap::kRightStickUp] = true;
+    CHECK(wp::padmap::buttons(pressed, false, automatic) == 0);
+    pressed.held[wp::padmap::kLeftShoulder] = true;
+    CHECK(wp::padmap::buttons(pressed, false, automatic) == wp::input::kMotionTiltUp);
+    pressed.held[wp::padmap::kRightStickUp] = false;
+    pressed.held[wp::padmap::kRightStickLeft] = true;
+    pressed.held[wp::padmap::kDpadDown] = true;
+    CHECK(wp::padmap::buttons(pressed, false, automatic) == (wp::input::kMotionTiltLeft | wp::input::kMotionSwingDown));
+    wp::padmap::Mapping custom = automatic;
+    custom[7] = wp::padmap::kNorth;
+    pressed = wp::padmap::Pressed{};
+    pressed.held[wp::padmap::kNorth] = true;
+    CHECK(wp::padmap::buttons(pressed, false, custom) == wp::input::kMotionShake);
+    pressed = wp::padmap::Pressed{};
+    pressed.held[wp::padmap::kLeftTrigger] = true;
+    CHECK(wp::padmap::buttons(pressed, false, custom) == 0);
+    custom = automatic;
+    custom[0] = wp::padmap::kLeftTrigger;
+    CHECK(wp::padmap::buttons(pressed, false, custom) == wp::input::kButtonA);
+    CHECK(wp::padmap::device_key("Xbox 360 Controller", 1) == "Xbox 360 Controller#2");
+    std::string list = wp::padmap::toggled("", "Xbox 360 Controller#2");
+    CHECK(list == "Xbox 360 Controller#2");
+    CHECK(wp::padmap::listed(list, "Xbox 360 Controller#2"));
+    CHECK(!wp::padmap::listed(list, "Xbox 360 Controller#1"));
+    list = wp::padmap::toggled(list, "Pad B#1");
+    CHECK(list == "Xbox 360 Controller#2;Pad B#1");
+    list = wp::padmap::toggled(list, "Xbox 360 Controller#2");
+    CHECK(list == "Pad B#1");
+    CHECK(wp::padmap::toggled(list, "Pad B#1").empty());
+    for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
+        for (const char* key : {"input.player1_keyboard_only", "pad.use", "pad.right_stick_up", "pad.right_stick_down", "pad.right_stick_left", "pad.right_stick_right",
+                                "pad.motion_help"}) {
+            CHECK(std::string(key) != wp::ui::label(key, language));
+        }
+    }
+    std::vector<std::string> keys = wp::settings::keys();
+    CHECK(std::find(keys.begin(), keys.end(), "input.player1_keyboard_only") != keys.end());
+    CHECK(std::find(keys.begin(), keys.end(), "input.ignored_gamepads") == keys.end());
+    wp::settings::load("");
+    CHECK(!wp::settings::flag("input.player1_keyboard_only", nullptr));
+    CHECK(wp::settings::text("input.ignored_gamepads", nullptr).empty());
+}
+
 void test_options_menu() {
     wp::settings::load("");
     std::vector<std::string> keys = wp::settings::keys();
@@ -1260,6 +1313,7 @@ int main() {
     test_options_menu();
     test_controls_hint();
     test_mii_database();
+    test_pad_motion();
     test_options_repeat_and_layout();
     test_options_render();
     test_software_fma();

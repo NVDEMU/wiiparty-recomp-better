@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <thread>
 
@@ -42,6 +43,8 @@ struct Snapshot {
     float left_y = 0.0f;
     float right_trigger = 0.0f;
     float left_trigger = 0.0f;
+    float right_x = 0.0f;
+    float right_y = 0.0f;
     bool has_accel = false;
     float accel[3] = {0.0f, 0.0f, 0.0f};
     bool pointer_valid = false;
@@ -85,13 +88,32 @@ float axis(SDL_Gamepad* pad, SDL_GamepadAxis which) {
     return static_cast<float>(SDL_GetGamepadAxis(pad, which)) / 32767.0f;
 }
 
+bool ignored(SDL_JoystickID id) {
+    const char* name = SDL_GetGamepadNameForID(id);
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    int ordinal = 0;
+    for (int i = 0; ids && i < count && ids[i] != id; i++) {
+        const char* other = SDL_GetGamepadNameForID(ids[i]);
+        if (name && other && std::strcmp(name, other) == 0) {
+            ordinal++;
+        }
+    }
+    SDL_free(ids);
+    return padmap::listed(settings::text("input.ignored_gamepads", nullptr), padmap::device_key(name ? name : "?", ordinal));
+}
+
 void open(std::array<Pad, kSlots>& pads, SDL_JoystickID id) {
     for (const Pad& pad : pads) {
         if (pad.handle && pad.id == id) {
             return;
         }
     }
-    for (size_t slot = 0; slot < kSlots; slot++) {
+    if (ignored(id)) {
+        return;
+    }
+    size_t first = settings::flag("input.player1_keyboard_only", nullptr) ? 1 : 0;
+    for (size_t slot = first; slot < kSlots; slot++) {
         Pad& pad = pads[slot];
         if (pad.handle) {
             continue;
@@ -123,6 +145,21 @@ void close(std::array<Pad, kSlots>& pads, SDL_JoystickID id) {
             log::write("input", "gamepad of Wii Remote %u disconnected", static_cast<unsigned>(slot + 1));
         }
     }
+}
+
+void reconcile(std::array<Pad, kSlots>& pads) {
+    for (size_t slot = 0; slot < kSlots; slot++) {
+        if (pads[slot].handle && ignored(pads[slot].id)) {
+            SDL_JoystickID id = pads[slot].id;
+            close(pads, id);
+        }
+    }
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    for (int i = 0; ids && i < count; i++) {
+        open(pads, ids[i]);
+    }
+    SDL_free(ids);
 }
 
 void calibrate(Pad& pad, const float gyro[3], const float accel[3], float dt) {
@@ -176,7 +213,10 @@ Snapshot read(Pad& pad, float dt) {
     snapshot.left_trigger = axis(handle, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
     float right_x = axis(handle, SDL_GAMEPAD_AXIS_RIGHTX);
     float right_y = axis(handle, SDL_GAMEPAD_AXIS_RIGHTY);
-    if (std::fabs(right_x) > kStickDeadZone || std::fabs(right_y) > kStickDeadZone) {
+    snapshot.right_x = right_x;
+    snapshot.right_y = right_y;
+    bool motion_mode = snapshot.buttons[SDL_GAMEPAD_BUTTON_LEFT_SHOULDER];
+    if (!motion_mode && (std::fabs(right_x) > kStickDeadZone || std::fabs(right_y) > kStickDeadZone)) {
         pad.pointer_active = true;
         pad.pointer_x += right_x * kStickPointerSpeed * dt;
         pad.pointer_y += right_y * kStickPointerSpeed * dt;
@@ -301,10 +341,15 @@ void worker() {
     std::array<Pad, kSlots> pads;
     std::array<Virtual, kSlots> virtuals;
     attach_virtual(virtuals);
+    uint32_t seen_revision = 0;
     auto previous = std::chrono::steady_clock::now();
     while (true) {
         drive_virtual(virtuals);
         SDL_UpdateJoysticks();
+        if (settings::revision() != seen_revision) {
+            seen_revision = settings::revision();
+            reconcile(pads);
+        }
         SDL_Event event;
         bool own_queue = !SDL_WasInit(SDL_INIT_VIDEO);
         if (own_queue) {
@@ -425,11 +470,16 @@ State poll(uint32_t slot, bool sideways) {
     }
     pressed.held[padmap::kLeftTrigger] = current.left_trigger > kTriggerThreshold;
     pressed.held[padmap::kRightTrigger] = current.right_trigger > kTriggerThreshold;
+    pressed.held[padmap::kRightStickUp] = current.right_y < -kStickThreshold;
+    pressed.held[padmap::kRightStickDown] = current.right_y > kStickThreshold;
+    pressed.held[padmap::kRightStickLeft] = current.right_x < -kStickThreshold;
+    pressed.held[padmap::kRightStickRight] = current.right_x > kStickThreshold;
+    bool motion_mode = held(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
     b |= padmap::buttons(pressed, sideways, padmap::current_mapping());
     bool left = held(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || current.left_x < -kStickThreshold;
     bool right = held(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || current.left_x > kStickThreshold;
-    bool up = held(SDL_GAMEPAD_BUTTON_DPAD_UP) || current.left_y < -kStickThreshold;
-    bool down = held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) || current.left_y > kStickThreshold;
+    bool up = (held(SDL_GAMEPAD_BUTTON_DPAD_UP) && !motion_mode) || current.left_y < -kStickThreshold;
+    bool down = (held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) && !motion_mode) || current.left_y > kStickThreshold;
     if (sideways) {
         b |= (left ? input::kButtonUp : 0) | (right ? input::kButtonDown : 0) | (up ? input::kButtonRight : 0) | (down ? input::kButtonLeft : 0);
     } else {

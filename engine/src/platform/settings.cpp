@@ -35,6 +35,8 @@ const Option kBaseOptions[] = {
     {"input.wake_on_mouse", "1"},
     {"input.hide_cursor", "0"},
     {"input.controls_hint", "0"},
+    {"input.player1_keyboard_only", "0"},
+    {"input.ignored_gamepads", ""},
     {"system.interface_language", "en"},
     {"system.language", "auto"},
     {"system.pal60", "1"},
@@ -172,7 +174,9 @@ void store(const char* key, const std::string& value) {
 std::vector<std::string> keys() {
     std::vector<std::string> result;
     for (const Option& option : kBaseOptions) {
-        result.push_back(option.key);
+        if (option.key != "input.ignored_gamepads") {
+            result.push_back(option.key);
+        }
     }
     return result;
 }

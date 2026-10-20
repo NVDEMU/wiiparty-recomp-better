@@ -53,6 +53,13 @@ constexpr Label kEnglishLabels[] = {
     {"mii.import_detail", "Pick a Wii Mii file (.mii, 74 or 76 bytes) or a Wii Mii database (RFL_DB.dat). Up to 100 Miis in total."},
     {"mii.choose_file", "Choose a file"},
     {"mii.none", "There are no Miis in the console database yet. Load a Mii file to see it in the game's Wii console list."},
+    {"input.player1_keyboard_only", "Player 1: keyboard and mouse only"},
+    {"pad.use", "Use this controller"},
+    {"pad.right_stick_up", "Right stick up"},
+    {"pad.right_stick_down", "Right stick down"},
+    {"pad.right_stick_left", "Right stick left"},
+    {"pad.right_stick_right", "Right stick right"},
+    {"pad.motion_help", "Motion without a gyroscope: the left trigger shakes. Hold the left shoulder button and push the right stick to tilt, or press up or down on the D-pad to swing. Each motion can also be given its own button below."},
 };
 
 constexpr Label kSpanishLabels[] = {
@@ -101,6 +108,13 @@ constexpr Label kSpanishLabels[] = {
     {"mii.import_detail", "Elige un archivo de Mii de Wii (.mii, 74 o 76 bytes) o una base de datos de Miis de Wii (RFL_DB.dat). Hasta 100 Miis en total."},
     {"mii.choose_file", "Elegir un archivo"},
     {"mii.none", "Aún no hay Miis en la base de datos de la consola. Carga un archivo de Mii para verlo en la lista de la consola Wii del juego."},
+    {"input.player1_keyboard_only", "Jugador 1: solo teclado y ratón"},
+    {"pad.use", "Usar este mando"},
+    {"pad.right_stick_up", "Stick derecho arriba"},
+    {"pad.right_stick_down", "Stick derecho abajo"},
+    {"pad.right_stick_left", "Stick derecho izquierda"},
+    {"pad.right_stick_right", "Stick derecho derecha"},
+    {"pad.motion_help", "Movimiento sin giroscopio: el gatillo izquierdo sacude. Mantén el botón superior izquierdo y mueve el stick derecho para inclinar, o pulsa arriba o abajo en la cruceta para golpear. Cada movimiento también puede tener su propio botón más abajo."},
 };
 
 constexpr Label kGalicianLabels[] = {
@@ -149,6 +163,13 @@ constexpr Label kGalicianLabels[] = {
     {"mii.import_detail", "Elixe un ficheiro de Mii de Wii (.mii, 74 ou 76 bytes) ou unha base de datos de Miis de Wii (RFL_DB.dat). Ata 100 Miis en total."},
     {"mii.choose_file", "Elixir un ficheiro"},
     {"mii.none", "Aínda non hai Miis na base de datos da consola. Carga un ficheiro de Mii para velo na lista da consola Wii do xogo."},
+    {"input.player1_keyboard_only", "Xogador 1: só teclado e rato"},
+    {"pad.use", "Usar este mando"},
+    {"pad.right_stick_up", "Stick dereito arriba"},
+    {"pad.right_stick_down", "Stick dereito abaixo"},
+    {"pad.right_stick_left", "Stick dereito esquerda"},
+    {"pad.right_stick_right", "Stick dereito dereita"},
+    {"pad.motion_help", "Movemento sen xiroscopio: o gatillo esquerdo sacode. Mantén o botón superior esquerdo e move o stick dereito para inclinar, ou preme arriba ou abaixo na cruceta para golpear. Cada movemento tamén pode ter o seu propio botón máis abaixo."},
 };
 
 constexpr Text kEnglish{"FPS",

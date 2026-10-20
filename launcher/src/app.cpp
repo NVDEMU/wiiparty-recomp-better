@@ -22,6 +22,7 @@
 #include "wiimote_pairing.h"
 #include "wp/keymap.h"
 #include "wp/options.h"
+#include "wp/padmap.h"
 #include "wp/settings.h"
 #include "wp/ui_text.h"
 
@@ -1514,15 +1515,32 @@ void App::gamepads_section(float width) {
     if (count == 0) {
         row(width, t.gamepads_none, "", 0.0f, 0.0f, [] {});
     }
-    for (int i = 0; i < count && i < 4; i++) {
+    std::string ignored = value("input.ignored_gamepads");
+    int next_slot = value("input.player1_keyboard_only") == "1" ? 2 : 1;
+    for (int i = 0; i < count && i < 8; i++) {
         if (i > 0) {
             inset_separator(width);
         }
         const char* name = SDL_GetGamepadNameForID(pads[i]);
-        std::string slot = format(t.gamepad_slot, std::to_string(i + 1));
+        int ordinal = 0;
+        for (int earlier = 0; earlier < i; earlier++) {
+            const char* other = SDL_GetGamepadNameForID(pads[earlier]);
+            if (name && other && std::strcmp(name, other) == 0) {
+                ordinal++;
+            }
+        }
+        std::string key = wp::padmap::device_key(name ? name : "?", ordinal);
+        bool used = !wp::padmap::listed(ignored, key);
+        std::string slot = used && next_slot <= 4 ? format(t.gamepad_slot, std::to_string(next_slot++)) : std::string();
         ImGui::PushID(i);
-        row(width, name ? name : "?", "", 120.0f, 20.0f, [&] {
-            ui::text(slot.c_str(), Font::Semibold, ui::size::kDetail, p.secondary);
+        row(width, name ? name : "?", wp::ui::label("pad.use"), 160.0f, 24.0f, [&] {
+            if (!slot.empty()) {
+                ui::text(slot.c_str(), Font::Semibold, ui::size::kDetail, p.secondary);
+                ImGui::SameLine(px(120));
+            }
+            if (ui::toggle("use", used)) {
+                store("input.ignored_gamepads", wp::padmap::toggled(ignored, key));
+            }
         });
         ImGui::PopID();
     }
