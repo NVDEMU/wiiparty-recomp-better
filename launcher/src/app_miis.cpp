@@ -29,9 +29,11 @@ void App::save_miis() {
 
 void App::choose_mii_file() {
     static std::string name;
+    static std::string everything;
     name = wp::ui::label("mii.import_filter");
-    static const char* pattern = "mii;dat";
-    SDL_DialogFileFilter filters[] = {{name.c_str(), pattern}};
+    everything = wp::ui::label("mii.import_all");
+    static const char* pattern = "mii;miigx;mae;rcd;rsd;bin;dat";
+    SDL_DialogFileFilter filters[] = {{name.c_str(), pattern}, {everything.c_str(), "*"}};
     std::string start = utf8_of(project_.game_folder());
     SDL_ShowOpenFileDialog(
         [](void* self, const char* const* files, int) {
@@ -42,7 +44,7 @@ void App::choose_mii_file() {
             }
             wake_main_loop();
         },
-        this, window_, filters, 1, start.c_str(), false);
+        this, window_, filters, 2, start.c_str(), false);
 }
 
 void App::miis_page(float width) {

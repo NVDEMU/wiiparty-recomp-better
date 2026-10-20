@@ -1395,3 +1395,13 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-016 (game) and 2610-017 (launcher). Contents: the three pad changes above.
 
+
+## Miis page: any file, drag and drop (2026-10-20)
+
+- A user asked for the page not to depend on the online editor and to accept other formats. Done: the file picker now has an "all files" filter next to `mii;miigx;mae;rcd;rsd;bin;dat` (MiiGX and MAE are the same 74-byte record under other names), a file can be dropped on the launcher window while the Miis page is open, and the format is still recognised from the contents (74 or 76 bytes, several records joined, or a whole `RFL_DB.dat`). A file with no Wii Mii data now says that Miis from the 3DS, Wii U, Switch or Mii Studio are a different format the launcher cannot convert yet.
+- Not done: converting those newer formats. Their records have styles the Wii does not have (the Wii has 72 hair styles, 48 eyes, 24 mouths, and so on), so a conversion has to pick the closest Wii style for each, and no licensed mapping table exists; one would have to be written and checked in the game style by style. Mii Channel save data, Mario Kart Wii ghosts and Wii Remote dumps (which carry Wii Miis) are other candidates.
+
+## Version 0.1.15-alpha (2026-10-20)
+
+- Build 2610-018 (game) and 2610-019 (launcher). The Miis page accepts any file and drag and drop; see the section above. Progress figures unchanged.
+

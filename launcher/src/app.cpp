@@ -445,6 +445,12 @@ bool App::consume(const SDL_Event& event) {
         g_wake_pending = false;
         return true;
     }
+    if (event.type == SDL_EVENT_DROP_FILE && page_ == Page::Miis && event.drop.data) {
+        std::lock_guard<std::mutex> lock(picked_mutex_);
+        picked_mii_ = event.drop.data;
+        ui::request_frames(2);
+        return true;
+    }
     if (event.type == SDL_EVENT_SYSTEM_THEME_CHANGED || event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) {
         apply_theme();
         return false;

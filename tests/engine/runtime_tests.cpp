@@ -935,7 +935,7 @@ void test_mii_database() {
     }
     for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
         for (const char* key : {"mii.title", "mii.intro", "mii.online", "mii.online_detail", "mii.open_online", "mii.import", "mii.import_detail", "mii.choose_file",
-                                "mii.import_done", "mii.import_failed", "mii.none", "mii.count", "mii.damaged", "mii.delete"}) {
+                                "mii.import_done", "mii.import_failed", "mii.import_all", "mii.none", "mii.count", "mii.damaged", "mii.delete"}) {
             CHECK(std::string(key) != wp::ui::label(key, language));
         }
     }
