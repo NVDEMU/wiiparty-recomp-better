@@ -306,10 +306,10 @@ Hover hit_test(const Layout& layout, const Rect& placed, int x, int y) {
 std::vector<HintRow> hint_rows(const keymap::Bindings& bindings, ui::Language language) {
     using keymap::Action;
     std::vector<HintRow> rows;
-    rows.push_back({ui::label("hint.pointer", language), ui::label("hint.mouse", language)});
-    auto add = [&](const std::string& name, const std::string& keys) {
+    rows.push_back({ui::label("hint.pointer", language), ui::label("hint.mouse", language), ""});
+    auto add = [&](const std::string& name, const std::string& keys, const char* icon = "") {
         if (!keys.empty()) {
-            rows.push_back({name, keys});
+            rows.push_back({name, keys, icon});
         }
     };
     auto keys_of = [&](Action action) { return keymap::format(bindings.of(action), "/"); };
@@ -324,16 +324,17 @@ std::vector<HintRow> hint_rows(const keymap::Bindings& bindings, ui::Language la
         }
         return result;
     };
-    add("A", keys_of(Action::A));
-    add("B", keys_of(Action::B));
-    add("1", keys_of(Action::One));
-    add("2", keys_of(Action::Two));
-    add("+", keys_of(Action::Plus));
-    add("-", keys_of(Action::Minus));
-    add(ui::label("hint.dpad", language), joined({Action::Up, Action::Down, Action::Left, Action::Right}));
+    add("A", keys_of(Action::A), "a");
+    add("B", keys_of(Action::B), "b");
+    add("1", keys_of(Action::One), "one");
+    add("2", keys_of(Action::Two), "two");
+    add("+", keys_of(Action::Plus), "plus");
+    add("-", keys_of(Action::Minus), "minus");
+    add(ui::label("hint.dpad", language), joined({Action::Up, Action::Down, Action::Left, Action::Right}), "dpad");
     add(ui::label("hint.shake", language), keys_of(Action::Shake));
     add(ui::label("hint.swing", language), joined({Action::SwingUp, Action::SwingDown}));
     add(ui::label("hint.tilt", language), joined({Action::TiltLeft, Action::TiltRight, Action::TiltUp, Action::TiltDown}));
+    add(ui::label("hint.mouse_motion", language), keys_of(Action::MouseMotion));
     return rows;
 }
 

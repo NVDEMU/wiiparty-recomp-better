@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace wp::padmap {
 
@@ -54,5 +55,9 @@ uint32_t buttons(const Pressed& pressed, bool sideways, const Mapping& mapping);
 std::string device_key(const std::string& name, int ordinal);
 bool listed(const std::string& list, const std::string& key);
 std::string toggled(const std::string& list, const std::string& key);
+int assigned(const std::string& list, const std::string& key);
+std::string assign(const std::string& list, const std::string& key, int player);
+std::vector<int> plan_slots(const std::vector<std::string>& keys, const std::vector<int>& current, const std::string& ignored, const std::string& assignments,
+                            bool player1_keyboard_only);
 
 }

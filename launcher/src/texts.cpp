@@ -889,6 +889,7 @@ constexpr Action kActions[] = {
     {"tilt_down", "Tilt down", "Inclinar hacia abajo", nullptr, nullptr, "Inclinar cara abaixo", nullptr},
     {"grip", "Swap upright and sideways grip", "Cambiar entre agarre vertical y horizontal", nullptr, nullptr, "Cambiar entre agarre vertical e horizontal", nullptr},
     {"screenshot", "Screenshot", "Captura de pantalla", "Saves the picture of the game as PNG in the screenshots folder.", "Guarda la imagen del juego como PNG en la carpeta screenshots.", "Captura de pantalla", "Garda a imaxe do xogo como PNG no cartafol screenshots."},
+    {"mouse_motion", "Mouse motion (hold)", "Movimiento con el ratón (mantener)", "While held, moving the mouse tilts the remote slowly, swings it up or down quickly, and shakes it with a fast side-to-side flick.", "Mientras se mantiene, mover el ratón inclina el mando despacio, lo mueve hacia arriba o abajo rápido y lo agita con un golpe rápido de lado a lado.", "Movemento co rato (manter)", "Mentres se mantén, mover o rato inclina o mando amodo, móveo cara arriba ou abaixo rápido e axítao cun golpe rápido dun lado a outro."},
 };
 
 int g_language = 0;

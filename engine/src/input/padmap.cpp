@@ -224,4 +224,79 @@ std::string toggled(const std::string& list, const std::string& key) {
     return result;
 }
 
+int assigned(const std::string& list, const std::string& key) {
+    size_t start = 0;
+    while (start <= list.size()) {
+        size_t end = list.find(';', start);
+        std::string item = list.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        size_t equals = item.rfind('=');
+        if (equals != std::string::npos && item.compare(0, equals, key) == 0 && equals + 2 == item.size() && item[equals + 1] >= '1' && item[equals + 1] <= '4') {
+            return item[equals + 1] - '0';
+        }
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    return 0;
+}
+
+std::string assign(const std::string& list, const std::string& key, int player) {
+    std::string result;
+    size_t start = 0;
+    while (start <= list.size()) {
+        size_t end = list.find(';', start);
+        std::string item = list.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        size_t equals = item.rfind('=');
+        bool same = equals != std::string::npos && item.compare(0, equals, key) == 0;
+        if (!same && !item.empty()) {
+            result += (result.empty() ? "" : ";") + item;
+        }
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    if (player >= 1 && player <= 4) {
+        result += (result.empty() ? "" : ";") + key + "=" + std::to_string(player);
+    }
+    return result;
+}
+
+std::vector<int> plan_slots(const std::vector<std::string>& keys, const std::vector<int>& current, const std::string& ignored, const std::string& assignments,
+                            bool player1_keyboard_only) {
+    constexpr int kSlotCount = 4;
+    std::vector<int> result(keys.size(), -1);
+    bool used[kSlotCount] = {};
+    auto usable = [&](size_t i) { return !listed(ignored, keys[i]); };
+    for (size_t i = 0; i < keys.size(); i++) {
+        int wanted = assigned(assignments, keys[i]);
+        if (usable(i) && wanted > 0 && !used[wanted - 1]) {
+            result[i] = wanted - 1;
+            used[wanted - 1] = true;
+        }
+    }
+    for (size_t i = 0; i < keys.size(); i++) {
+        int slot = i < current.size() ? current[i] : -1;
+        if (usable(i) && result[i] < 0 && assigned(assignments, keys[i]) == 0 && slot >= 0 && slot < kSlotCount && !used[slot]) {
+            result[i] = slot;
+            used[slot] = true;
+        }
+    }
+    int first = player1_keyboard_only ? 1 : 0;
+    for (size_t i = 0; i < keys.size(); i++) {
+        if (!usable(i) || result[i] >= 0) {
+            continue;
+        }
+        for (int slot = first; slot < kSlotCount; slot++) {
+            if (!used[slot]) {
+                result[i] = slot;
+                used[slot] = true;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
 }

@@ -15,6 +15,7 @@ enum class Action { Up, Down, Previous, Next, Close };
 struct HintRow {
     std::string name;
     std::string keys;
+    std::string icon;
 };
 
 std::vector<HintRow> hint_rows(const keymap::Bindings& bindings, ui::Language language);

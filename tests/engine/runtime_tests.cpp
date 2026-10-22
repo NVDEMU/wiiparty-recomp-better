@@ -730,6 +730,18 @@ void test_key_defaults() {
     CHECK(action(Action::A).buttons == wp::input::kButtonA);
     CHECK(action(Action::TiltDown).buttons == wp::input::kMotionTiltDown);
     CHECK(action(Action::Grip).buttons == 0);
+    CHECK(format(keys.of(Action::MouseMotion)) == "Z");
+    CHECK(action(Action::MouseMotion).buttons == 0);
+    wp::input::MouseMotionState mouse;
+    CHECK(wp::input::mouse_motion(mouse, false, 0, 0, 0) == 0);
+    CHECK(wp::input::mouse_motion(mouse, true, 100, 100, 0) == 0);
+    CHECK(wp::input::mouse_motion(mouse, true, 110, 100, 10) == wp::input::kMotionTiltRight);
+    CHECK(wp::input::mouse_motion(mouse, true, 110, 100, 60) == wp::input::kMotionTiltRight);
+    CHECK(wp::input::mouse_motion(mouse, true, 110, 100, 200) == 0);
+    CHECK(wp::input::mouse_motion(mouse, true, 110, 90, 210) == wp::input::kMotionTiltUp);
+    CHECK(wp::input::mouse_motion(mouse, true, 110, 40, 220) == wp::input::kMotionSwingUp);
+    CHECK(wp::input::mouse_motion(mouse, true, 40, 40, 230) == wp::input::kMotionShake);
+    CHECK(wp::input::mouse_motion(mouse, false, 40, 40, 240) == 0);
     CHECK(keys.has(Action::A, 0x0D));
     CHECK(!keys.has(Action::B, 0x0D));
     CHECK(keys.bound('Q'));
@@ -841,22 +853,23 @@ void test_live_settings() {
 void test_controls_hint() {
     for (wp::ui::Language language : {wp::ui::Language::English, wp::ui::Language::Spanish, wp::ui::Language::Galician}) {
         wp::ui::set_language(language);
-        for (const char* key : {"hint.title", "hint.pointer", "hint.mouse", "hint.dpad", "hint.shake", "hint.swing", "hint.tilt", "input.controls_hint"}) {
+        for (const char* key : {"hint.title", "hint.pointer", "hint.mouse", "hint.dpad", "hint.shake", "hint.swing", "hint.tilt", "hint.mouse_motion", "input.controls_hint"}) {
             CHECK(std::string(key) != wp::ui::label(key));
         }
     }
     wp::ui::set_language(wp::ui::Language::English);
     std::vector<wp::options::HintRow> rows = wp::options::hint_rows(wp::keymap::defaults(), wp::ui::Language::English);
-    CHECK(rows.size() == 11);
+    CHECK(rows.size() == 12);
     CHECK(rows[0].name == "Pointer");
     CHECK(rows[1].name == "A" && rows[1].keys == "Enter/Space/MouseLeft");
     CHECK(rows[7].keys == "Up/W  Down/S  Left/A  Right/D");
+    CHECK(rows[0].icon.empty() && rows[1].icon == "a" && rows[5].icon == "plus" && rows[7].icon == "dpad" && rows[8].icon.empty());
     wp::keymap::Bindings bindings = wp::keymap::defaults();
     bindings.codes[static_cast<size_t>(wp::keymap::Action::Shake)].clear();
     bindings.codes[static_cast<size_t>(wp::keymap::Action::B)] = {'X'};
     rows = wp::options::hint_rows(bindings, wp::ui::Language::English);
     CHECK(wp::options::hint_rows(bindings, wp::ui::Language::Spanish)[0].name == "Puntero");
-    CHECK(rows.size() == 10);
+    CHECK(rows.size() == 11);
     CHECK(rows[2].name == "B" && rows[2].keys == "X");
 
     wp::options::InstructionWatch watch;
@@ -971,6 +984,19 @@ void test_pad_motion() {
     custom[0] = wp::padmap::kLeftTrigger;
     CHECK(wp::padmap::buttons(pressed, false, custom) == wp::input::kButtonA);
     CHECK(wp::padmap::device_key("Xbox 360 Controller", 1) == "Xbox 360 Controller#2");
+    std::string players = wp::padmap::assign("", "Pad A#1", 3);
+    CHECK(players == "Pad A#1=3" && wp::padmap::assigned(players, "Pad A#1") == 3 && wp::padmap::assigned(players, "Pad A#2") == 0);
+    players = wp::padmap::assign(players, "Pad B#1", 1);
+    players = wp::padmap::assign(players, "Pad A#1", 0);
+    CHECK(players == "Pad B#1=1");
+    std::vector<std::string> pad_keys = {"Pad A#1", "Pad A#2", "Pad B#1"};
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "", "", false) == std::vector<int>{0, 1, 2}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "", "", true) == std::vector<int>{1, 2, 3}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "Pad A#1", "", false) == std::vector<int>{-1, 0, 1}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "", "Pad B#1=1", false) == std::vector<int>{1, 2, 0}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "", "Pad A#1=2;Pad A#2=2", false) == std::vector<int>{1, 0, 2}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, 2, 0}, "", "", false) == std::vector<int>{1, 2, 0}));
+    CHECK((wp::padmap::plan_slots(pad_keys, {-1, -1, -1}, "", "Pad B#1=1", true) == std::vector<int>{1, 2, 0}));
     std::string list = wp::padmap::toggled("", "Xbox 360 Controller#2");
     CHECK(list == "Xbox 360 Controller#2");
     CHECK(wp::padmap::listed(list, "Xbox 360 Controller#2"));

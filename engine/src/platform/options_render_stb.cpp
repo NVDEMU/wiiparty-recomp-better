@@ -364,6 +364,33 @@ Image render(const Menu& menu, int client_height) {
     return image;
 }
 
+void draw_button_icon(Canvas& canvas, const Face& face, const std::string& icon, int left, int top, int size) {
+    constexpr uint32_t kButton = 0xE6E6EA;
+    int right = left + size;
+    int bottom = top + size;
+    int cx = left + size / 2;
+    int cy = top + size / 2;
+    int bar = std::max(2, size / 6);
+    if (icon == "dpad") {
+        int arm = size / 3;
+        canvas.fill_round(cx - arm / 2, top, cx - arm / 2 + arm, bottom, arm / 4, kButton);
+        canvas.fill_round(left, cy - arm / 2, right, cy - arm / 2 + arm, arm / 4, kButton);
+        return;
+    }
+    bool round = icon == "a" || icon == "plus" || icon == "minus";
+    canvas.fill_round(left, top, right, bottom, round ? size / 2 : size / 5, kButton);
+    if (icon == "plus" || icon == "minus") {
+        int half = size / 4;
+        canvas.fill(cx - half, cy - bar / 2, cx + half + 1, cy - bar / 2 + bar, kPanel);
+        if (icon == "plus") {
+            canvas.fill(cx - bar / 2, cy - half, cx - bar / 2 + bar, cy + half + 1, kPanel);
+        }
+        return;
+    }
+    const char* glyph = icon == "a" ? "A" : icon == "b" ? "B" : icon == "one" ? "1" : "2";
+    canvas.text(face, kPanel, glyph, left, top, right, bottom, Align::Center, false);
+}
+
 Image render_hint(const std::vector<HintRow>& rows, const std::string& title, int client_width, int client_height) {
     Image image;
     if (rows.empty() || client_width <= 0 || client_height <= 0 || !font(false).ok) {
@@ -371,15 +398,17 @@ Image render_hint(const std::vector<HintRow>& rows, const std::string& title, in
     }
     int unit = std::clamp(client_height / 60, 9, 24);
     int padding = unit;
-    int row_height = unit * 3 / 2;
+    int row_height = unit * 7 / 4;
     int title_height = unit * 2;
     int gap = unit * 2;
     Face title_face = make_face(true, unit * 5 / 4);
     Face row_face = make_face(false, unit);
     int name_width = 0;
     int keys_width = 0;
+    int icon_size = row_height - unit / 3;
+    Face icon_face = make_face(true, icon_size * 3 / 4);
     for (const HintRow& row : rows) {
-        name_width = std::max(name_width, static_cast<int>(std::ceil(text_width(row_face, decode(row.name)))));
+        name_width = std::max(name_width, row.icon.empty() ? static_cast<int>(std::ceil(text_width(row_face, decode(row.name)))) : icon_size);
         keys_width = std::max(keys_width, static_cast<int>(std::ceil(text_width(row_face, decode(row.keys)))));
     }
     int title_width = static_cast<int>(std::ceil(text_width(title_face, decode(title))));
@@ -396,7 +425,11 @@ Image render_hint(const std::vector<HintRow>& rows, const std::string& title, in
     canvas.fill(padding, rows_top - unit / 2, width - padding, rows_top - unit / 2 + stroke / 2 + 1, kSeparator);
     for (size_t i = 0; i < rows.size(); i++) {
         int top = rows_top + static_cast<int>(i) * row_height;
-        canvas.text(row_face, kMuted, rows[i].name, padding, top, padding + name_width, top + row_height, Align::Left, true);
+        if (rows[i].icon.empty()) {
+            canvas.text(row_face, kMuted, rows[i].name, padding, top, padding + name_width, top + row_height, Align::Left, true);
+        } else {
+            draw_button_icon(canvas, icon_face, rows[i].icon, padding + (name_width - icon_size) / 2, top + (row_height - icon_size) / 2, icon_size);
+        }
         canvas.text(row_face, kText, rows[i].keys, padding + name_width + gap, top, width - padding, top + row_height, Align::Left, true);
     }
     image.width = static_cast<uint32_t>(client_width);

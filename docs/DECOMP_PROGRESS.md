@@ -1405,3 +1405,16 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-018 (game) and 2610-019 (launcher). The Miis page accepts any file and drag and drop; see the section above. Progress figures unchanged.
 
+## Button icons, mouse motion and player per gamepad (2026-10-22)
+
+- Report from the Parsec user: the controls window wrote everything as words, so a friend did not know which button to press; the rotation of pieces in "La pieza correcta" had no visible key. The game's own text (`locale/sp_EU/mess.bin`) says to point at a piece, press A to grab it and "gira el mando" (twist the remote) to rotate it: the rotation is the remote's roll, which the keyboard gives with the tilt keys Q and E and the pad with the left shoulder button plus the right stick sideways. Not played to confirm.
+- Controls window (`options_render_stb.cpp`, `HintRow::icon`): A, B, 1, 2, + and - and the D-pad are drawn as the Wii Remote's buttons (circle, rounded square, cross) in place of the letters; the rows for the pointer, shake, swing, tilt and mouse motion keep words. Rows are slightly taller. Checked by rendering the image to a PNG outside the game (`scratchpad/hint.png`), not yet seen in game.
+- Mouse motion (`input::mouse_motion`, new key action `mouse_motion`, default `Z`, held): while held, mouse speed is read every 8 ms or more; up to 2 px/ms a slow move gives tilt (horizontal left or right, vertical up or down), from 2 px/ms a fast vertical move gives a swing up or down and a fast horizontal move a shake; the bit stays for 120 ms. The window lists it as "Mouse motion". The pointer keeps following the mouse. Thresholds are guesses; unit test covers the rules, not feel.
+- Player per gamepad (`input.gamepad_players`, hidden from the menus; `padmap::assign`, `assigned`, `plan_slots`): each pad can be given player 1 to 4 on the Controls page of the launcher (the button cycles automatic, 1, 2, 3, 4). `gamepad.cpp` `reconcile` now plans all slots at once: explicit assignments first, pads already open keep their slot, the rest take the lowest free slot (from 2 when `input.player1_keyboard_only` is on, unless the pad was assigned player 1 explicitly). A new pad triggers the same reconcile, so an assigned pad takes its slot even when connected late. Unit tests cover the planning.
+- Not done: playing through the other modes (Globe Trot, Swap Meet, Spin-Off, Bingo, Balance Boat, Match-Up, Friend Connection, House Party). Each needs a script written for that mode and a person to judge the result; Game Flow stays at 90%. Input stays at 80% because pads and real remotes are untested with hardware.
+- Checked: `ctest` 4 of 4, launcher and game built, a headless boot reaches the menu with no fault.
+
+## Version 0.1.16-alpha (2026-10-22)
+
+- Build 2610-020 (game) and 2610-021 (launcher). Contents: button icons in the controls window, mouse motion with a held key, and a player per gamepad. Progress figures unchanged.
+

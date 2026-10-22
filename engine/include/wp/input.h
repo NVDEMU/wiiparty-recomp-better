@@ -26,6 +26,17 @@ constexpr uint32_t kMotionTiltUp = 0x200000;
 constexpr uint32_t kMotionTiltDown = 0x400000;
 constexpr uint32_t kMotionSideways = 0x800000;
 
+struct MouseMotionState {
+    bool tracking = false;
+    long x = 0;
+    long y = 0;
+    int64_t time = 0;
+    uint32_t held = 0;
+    int64_t until = 0;
+};
+
+uint32_t mouse_motion(MouseMotionState& state, bool active, long x, long y, int64_t now);
+
 struct Sample {
     uint32_t buttons = 0;
     bool pointer_valid = false;

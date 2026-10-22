@@ -185,6 +185,46 @@ Sample gamepad_sample(uint32_t channel, bool sideways) {
 
 }
 
+uint32_t mouse_motion(MouseMotionState& state, bool active, long x, long y, int64_t now) {
+    constexpr double kSlow = 0.15;
+    constexpr double kFast = 2.0;
+    constexpr int64_t kStep = 8;
+    constexpr int64_t kHold = 120;
+    if (!active) {
+        state = MouseMotionState{};
+        return 0;
+    }
+    if (!state.tracking) {
+        state.tracking = true;
+        state.x = x;
+        state.y = y;
+        state.time = now;
+        return 0;
+    }
+    int64_t elapsed = now - state.time;
+    if (elapsed >= kStep) {
+        double vx = static_cast<double>(x - state.x) / static_cast<double>(elapsed);
+        double vy = static_cast<double>(y - state.y) / static_cast<double>(elapsed);
+        state.x = x;
+        state.y = y;
+        state.time = now;
+        double ax = vx < 0.0 ? -vx : vx;
+        double ay = vy < 0.0 ? -vy : vy;
+        double speed = ax > ay ? ax : ay;
+        uint32_t bits = 0;
+        if (speed >= kFast) {
+            bits = ay > ax ? (vy < 0.0 ? kMotionSwingUp : kMotionSwingDown) : kMotionShake;
+        } else if (speed >= kSlow) {
+            bits = ax >= ay ? (vx < 0.0 ? kMotionTiltLeft : kMotionTiltRight) : (vy < 0.0 ? kMotionTiltUp : kMotionTiltDown);
+        }
+        if (bits != 0) {
+            state.held = bits;
+            state.until = now + kHold;
+        }
+    }
+    return now < state.until ? state.held : 0;
+}
+
 bool wakes_remote(uint32_t channel) {
     Sample current = sample(channel);
     if ((current.buttons & ~kMotionSideways) != 0) {
@@ -297,6 +337,8 @@ Sample device_sample(uint32_t channel) {
             last_mouse_move = now;
         }
     }
+    static MouseMotionState mouse_state;
+    result.buttons |= mouse_motion(mouse_state, any_pressed(keys.of(keymap::Action::MouseMotion)), cursor_x, cursor_y, now);
     bool mouse_recent = now - last_mouse_move < 1000;
     if ((mouse_recent || !pad.pointer_valid) && video::cursor_on_image(result.pointer_x, result.pointer_y)) {
         result.pointer_valid = true;

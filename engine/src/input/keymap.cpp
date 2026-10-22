@@ -30,6 +30,7 @@ constexpr ActionInfo kActions[kActionCount] = {
     {"tilt_down", input::kMotionTiltDown, "F"},
     {"grip", 0, "Tab"},
     {"screenshot", 0, "F9"},
+    {"mouse_motion", 0, "Z"},
 };
 
 struct Key {

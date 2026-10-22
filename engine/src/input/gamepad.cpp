@@ -88,52 +88,38 @@ float axis(SDL_Gamepad* pad, SDL_GamepadAxis which) {
     return static_cast<float>(SDL_GetGamepadAxis(pad, which)) / 32767.0f;
 }
 
-bool ignored(SDL_JoystickID id) {
-    const char* name = SDL_GetGamepadNameForID(id);
-    int count = 0;
-    SDL_JoystickID* ids = SDL_GetGamepads(&count);
-    int ordinal = 0;
-    for (int i = 0; ids && i < count && ids[i] != id; i++) {
-        const char* other = SDL_GetGamepadNameForID(ids[i]);
-        if (name && other && std::strcmp(name, other) == 0) {
-            ordinal++;
+std::vector<std::string> device_keys(const SDL_JoystickID* ids, int count) {
+    std::vector<std::string> keys;
+    for (int i = 0; i < count; i++) {
+        const char* name = SDL_GetGamepadNameForID(ids[i]);
+        int ordinal = 0;
+        for (int earlier = 0; earlier < i; earlier++) {
+            const char* other = SDL_GetGamepadNameForID(ids[earlier]);
+            if (name && other && std::strcmp(name, other) == 0) {
+                ordinal++;
+            }
         }
+        keys.push_back(padmap::device_key(name ? name : "?", ordinal));
     }
-    SDL_free(ids);
-    return padmap::listed(settings::text("input.ignored_gamepads", nullptr), padmap::device_key(name ? name : "?", ordinal));
+    return keys;
 }
 
-void open(std::array<Pad, kSlots>& pads, SDL_JoystickID id) {
-    for (const Pad& pad : pads) {
-        if (pad.handle && pad.id == id) {
-            return;
-        }
-    }
-    if (ignored(id)) {
+void open_at(std::array<Pad, kSlots>& pads, SDL_JoystickID id, size_t slot) {
+    SDL_Gamepad* handle = SDL_OpenGamepad(id);
+    if (!handle) {
         return;
     }
-    size_t first = settings::flag("input.player1_keyboard_only", nullptr) ? 1 : 0;
-    for (size_t slot = first; slot < kSlots; slot++) {
-        Pad& pad = pads[slot];
-        if (pad.handle) {
-            continue;
-        }
-        SDL_Gamepad* handle = SDL_OpenGamepad(id);
-        if (!handle) {
-            return;
-        }
-        pad = Pad{};
-        pad.handle = handle;
-        pad.id = id;
-        pad.has_gyro = SDL_GamepadHasSensor(handle, SDL_SENSOR_GYRO) && SDL_SetGamepadSensorEnabled(handle, SDL_SENSOR_GYRO, true);
-        pad.has_accel = SDL_GamepadHasSensor(handle, SDL_SENSOR_ACCEL) && SDL_SetGamepadSensorEnabled(handle, SDL_SENSOR_ACCEL, true);
-        pad.pointer_active = pad.has_gyro;
-        pad.nintendo_layout = SDL_GetGamepadButtonLabel(handle, SDL_GAMEPAD_BUTTON_SOUTH) == SDL_GAMEPAD_BUTTON_LABEL_B;
-        const char* name = SDL_GetGamepadName(handle);
-        log::write("input", "gamepad %s connected as Wii Remote %u, gyroscope %s, accelerometer %s, %s layout", name ? name : "?", static_cast<unsigned>(slot + 1),
-                   pad.has_gyro ? "yes" : "no", pad.has_accel ? "yes" : "no", pad.nintendo_layout ? "Nintendo" : "Xbox");
-        return;
-    }
+    Pad& pad = pads[slot];
+    pad = Pad{};
+    pad.handle = handle;
+    pad.id = id;
+    pad.has_gyro = SDL_GamepadHasSensor(handle, SDL_SENSOR_GYRO) && SDL_SetGamepadSensorEnabled(handle, SDL_SENSOR_GYRO, true);
+    pad.has_accel = SDL_GamepadHasSensor(handle, SDL_SENSOR_ACCEL) && SDL_SetGamepadSensorEnabled(handle, SDL_SENSOR_ACCEL, true);
+    pad.pointer_active = pad.has_gyro;
+    pad.nintendo_layout = SDL_GetGamepadButtonLabel(handle, SDL_GAMEPAD_BUTTON_SOUTH) == SDL_GAMEPAD_BUTTON_LABEL_B;
+    const char* name = SDL_GetGamepadName(handle);
+    log::write("input", "gamepad %s connected as Wii Remote %u, gyroscope %s, accelerometer %s, %s layout", name ? name : "?", static_cast<unsigned>(slot + 1),
+               pad.has_gyro ? "yes" : "no", pad.has_accel ? "yes" : "no", pad.nintendo_layout ? "Nintendo" : "Xbox");
 }
 
 void close(std::array<Pad, kSlots>& pads, SDL_JoystickID id) {
@@ -148,16 +134,36 @@ void close(std::array<Pad, kSlots>& pads, SDL_JoystickID id) {
 }
 
 void reconcile(std::array<Pad, kSlots>& pads) {
-    for (size_t slot = 0; slot < kSlots; slot++) {
-        if (pads[slot].handle && ignored(pads[slot].id)) {
-            SDL_JoystickID id = pads[slot].id;
-            close(pads, id);
-        }
-    }
     int count = 0;
     SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    std::vector<std::string> keys = device_keys(ids, count);
+    std::vector<int> current(static_cast<size_t>(count), -1);
     for (int i = 0; ids && i < count; i++) {
-        open(pads, ids[i]);
+        for (size_t slot = 0; slot < kSlots; slot++) {
+            if (pads[slot].handle && pads[slot].id == ids[i]) {
+                current[static_cast<size_t>(i)] = static_cast<int>(slot);
+            }
+        }
+    }
+    std::vector<int> plan = padmap::plan_slots(keys, current, settings::text("input.ignored_gamepads", nullptr), settings::text("input.gamepad_players", nullptr),
+                                               settings::flag("input.player1_keyboard_only", nullptr));
+    for (size_t slot = 0; slot < kSlots; slot++) {
+        if (!pads[slot].handle) {
+            continue;
+        }
+        bool keep = false;
+        for (int i = 0; ids && i < count; i++) {
+            keep = keep || (ids[i] == pads[slot].id && plan[static_cast<size_t>(i)] == static_cast<int>(slot));
+        }
+        if (!keep) {
+            close(pads, pads[slot].id);
+        }
+    }
+    for (int i = 0; ids && i < count; i++) {
+        int slot = plan[static_cast<size_t>(i)];
+        if (slot >= 0 && !pads[static_cast<size_t>(slot)].handle) {
+            open_at(pads, ids[i], static_cast<size_t>(slot));
+        }
     }
     SDL_free(ids);
 }
@@ -358,7 +364,7 @@ void worker() {
         while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, own_queue ? SDL_EVENT_FIRST : SDL_EVENT_JOYSTICK_AXIS_MOTION,
                               own_queue ? SDL_EVENT_LAST : SDL_EVENT_FINGER_DOWN - 1) > 0) {
             if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
-                open(pads, event.gdevice.which);
+                reconcile(pads);
             } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
                 close(pads, event.gdevice.which);
             }
