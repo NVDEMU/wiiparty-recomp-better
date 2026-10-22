@@ -1429,3 +1429,12 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-022 (game) and 2610-023 (launcher). Contents: the three fixes above.
 
+## Gamepad button names (2026-10-22)
+
+- The Controls page of the launcher listed the gamepad buttons with words ("Botón de abajo", "Botón de la derecha"), which a tester found hard to follow. The four face buttons are now listed with the name printed on the controller followed by the position: A, B, X, Y on Xbox pads and others; B, A, Y, X on Nintendo pads (the bottom button is B there); Cross, Circle, Square, Triangle on PlayStation pads (new labels `pad.cross`, `pad.circle`, `pad.square`, `pad.triangle` in three languages). The style comes from the type SDL reports for the first connected pad (`SDL_GetGamepadTypeForID`); with no pad connected the Xbox names are used. The shoulders and triggers already carried their names.
+- Not done: drawn icons for the buttons in the list. Checked in the launcher screenshot only with no pad connected (the list was closed); not seen with a Nintendo or PlayStation pad.
+
+## Version 0.1.18-alpha (2026-10-22)
+
+- Build 2610-024 (game) and 2610-025 (launcher). Contents: the button names above.
+

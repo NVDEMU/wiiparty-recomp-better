@@ -15,7 +15,44 @@ namespace {
 constexpr float kStickThreshold = 0.5f;
 constexpr float kTriggerThreshold = 0.5f;
 
-const char* physical_label(int physical) {
+enum class PadStyle { Xbox, Nintendo, PlayStation };
+
+PadStyle pad_style() {
+    int count = 0;
+    SDL_JoystickID* ids = gamepads(count);
+    PadStyle style = PadStyle::Xbox;
+    if (count > 0) {
+        switch (SDL_GetGamepadTypeForID(ids[0])) {
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+            style = PadStyle::Nintendo;
+            break;
+        case SDL_GAMEPAD_TYPE_PS3:
+        case SDL_GAMEPAD_TYPE_PS4:
+        case SDL_GAMEPAD_TYPE_PS5:
+            style = PadStyle::PlayStation;
+            break;
+        default:
+            break;
+        }
+    }
+    SDL_free(ids);
+    return style;
+}
+
+std::string face_name(int physical, PadStyle style) {
+    static const char* xbox[] = {"A", "B", "X", "Y"};
+    static const char* nintendo[] = {"B", "A", "Y", "X"};
+    static const char* playstation[] = {"pad.cross", "pad.circle", "pad.square", "pad.triangle"};
+    if (style == PadStyle::PlayStation) {
+        return wp::ui::label(playstation[physical]);
+    }
+    return style == PadStyle::Nintendo ? nintendo[physical] : xbox[physical];
+}
+
+std::string physical_label(int physical, PadStyle style) {
     const Texts& t = texts();
     const char* labels[] = {t.pad_south,      t.pad_east,          t.pad_west,           t.pad_north,    t.pad_back,      t.pad_guide,
                             t.pad_start,      t.pad_left_stick,    t.pad_right_stick,    t.pad_left_shoulder, t.pad_right_shoulder,
@@ -23,6 +60,9 @@ const char* physical_label(int physical) {
     if (physical > wp::padmap::kRightTrigger && physical < wp::padmap::kPhysicalCount) {
         std::string key = std::string("pad.") + wp::padmap::physical_name(physical);
         return wp::ui::label(key.c_str());
+    }
+    if (physical >= wp::padmap::kSouth && physical <= wp::padmap::kNorth) {
+        return face_name(physical, style) + " – " + labels[physical];
     }
     return physical >= 0 && physical <= wp::padmap::kRightTrigger ? labels[physical] : t.pad_auto;
 }
@@ -202,8 +242,9 @@ void App::pad_map_section(float width) {
     ui::text(wp::ui::label("pad.motion_help"), Font::Regular, ui::size::kDetail, p.secondary, width - px(36));
     ImGui::SetCursorScreenPos(ImVec2(at.x, ImGui::GetCursorScreenPos().y + px(14)));
     std::vector<std::string> labels = {t.pad_auto};
+    PadStyle style = pad_style();
     for (int i = 0; i < wp::padmap::kPhysicalCount; i++) {
-        labels.push_back(physical_label(i));
+        labels.push_back(physical_label(i, style));
     }
     for (size_t action = 0; action < wp::padmap::kActionCount; action++) {
         inset_separator(width);
