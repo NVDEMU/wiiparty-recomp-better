@@ -64,6 +64,7 @@ const std::vector<Option>& options() {
 
 std::mutex g_mutex;
 std::string g_path;
+std::string g_snapshot;
 std::map<std::string, std::string> g_values;
 std::atomic<uint32_t> g_revision{1};
 
@@ -106,6 +107,37 @@ void write_file() {
     }
     std::ofstream file(g_path, std::ios::binary | std::ios::trunc);
     file << out.str();
+    g_snapshot = out.str();
+}
+
+std::string file_text() {
+    std::ifstream file(g_path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+
+void read_file() {
+    g_snapshot = file_text();
+    std::istringstream file(g_snapshot);
+    std::string line;
+    std::string section;
+    while (std::getline(file, line)) {
+        line = trimmed(line);
+        if (line.empty() || line[0] == ';' || line[0] == '#') {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']') {
+            section = trimmed(line.substr(1, line.size() - 2));
+            continue;
+        }
+        size_t equals = line.find('=');
+        if (equals == std::string::npos) {
+            continue;
+        }
+        std::string key = section + "." + trimmed(line.substr(0, equals));
+        if (g_values.count(key)) {
+            g_values[key] = trimmed(line.substr(equals + 1));
+        }
+    }
 }
 
 std::string value_of(const char* key, const char* variable) {
@@ -127,29 +159,22 @@ void load(const std::string& path) {
     for (const Option& option : options()) {
         g_values[option.key] = option.fallback;
     }
-    std::ifstream file(path, std::ios::binary);
-    std::string line;
-    std::string section;
-    while (std::getline(file, line)) {
-        line = trimmed(line);
-        if (line.empty() || line[0] == ';' || line[0] == '#') {
-            continue;
-        }
-        if (line.front() == '[' && line.back() == ']') {
-            section = trimmed(line.substr(1, line.size() - 2));
-            continue;
-        }
-        size_t equals = line.find('=');
-        if (equals == std::string::npos) {
-            continue;
-        }
-        std::string key = section + "." + trimmed(line.substr(0, equals));
-        if (g_values.count(key)) {
-            g_values[key] = trimmed(line.substr(equals + 1));
-        }
-    }
+    read_file();
     write_file();
     g_revision++;
+}
+
+bool reload_if_changed() {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (g_path.empty()) {
+        return false;
+    }
+    if (file_text() == g_snapshot) {
+        return false;
+    }
+    read_file();
+    g_revision++;
+    return true;
 }
 
 bool flag(const char* key, const char* variable) {

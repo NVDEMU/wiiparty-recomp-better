@@ -2,6 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <unordered_map>
 
 #include "embedded.h"
@@ -44,6 +50,56 @@ ImFont* font_for(Font font) {
     return g_fonts[font == Font::Semibold ? 1 : 0];
 }
 
+std::string matched_font(const char* pattern) {
+#ifdef _WIN32
+    (void)pattern;
+    return "";
+#else
+    std::string command = std::string("fc-match -f '%{file}' '") + pattern + "' 2>/dev/null";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+        return "";
+    }
+    std::string path;
+    char buffer[512];
+    while (std::fgets(buffer, sizeof buffer, pipe)) {
+        path += buffer;
+    }
+    pclose(pipe);
+    return path;
+#endif
+}
+
+const std::vector<std::vector<char>>& fallback_fonts() {
+    static const std::vector<std::vector<char>> fonts = [] {
+        std::vector<std::vector<std::string>> groups;
+        if (const char* windows = std::getenv("WINDIR")) {
+            std::string folder = std::string(windows) + "/Fonts/";
+            groups = {{folder + "YuGothM.ttc", folder + "meiryo.ttc", folder + "msgothic.ttc"}, {folder + "msyh.ttc"}, {folder + "malgun.ttf"}};
+        }
+        groups.push_back({matched_font(":lang=ja")});
+        groups.push_back({matched_font(":lang=zh-cn")});
+        groups.push_back({matched_font(":lang=ko")});
+        std::vector<std::vector<char>> result;
+        for (const std::vector<std::string>& group : groups) {
+            for (const std::string& path : group) {
+                std::error_code error;
+                if (path.empty() || !std::filesystem::is_regular_file(path, error)) {
+                    continue;
+                }
+                std::ifstream file(path, std::ios::binary);
+                std::vector<char> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                if (!data.empty()) {
+                    result.push_back(std::move(data));
+                    break;
+                }
+            }
+        }
+        return result;
+    }();
+    return fonts;
+}
+
 void add_font(int index, const char* name) {
     static std::vector<char> data[2];
     if (data[index].empty()) {
@@ -54,6 +110,12 @@ void add_font(int index, const char* name) {
     config.OversampleH = 2;
     config.OversampleV = 2;
     g_fonts[index] = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(data[index].data(), static_cast<int>(data[index].size()), size::kBody, &config);
+    for (const std::vector<char>& fallback : fallback_fonts()) {
+        ImFontConfig merge;
+        merge.FontDataOwnedByAtlas = false;
+        merge.MergeMode = true;
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF(const_cast<char*>(fallback.data()), static_cast<int>(fallback.size()), size::kBody, &merge);
+    }
 }
 
 bool behavior(const ImRect& rect, ImGuiID id, bool enabled, bool& hovered, bool& held) {

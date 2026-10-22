@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -130,17 +131,25 @@ Sample scripted(const std::vector<ScriptEntry>& script, int milliseconds) {
 }
 
 const keymap::Bindings& bindings() {
-    static const keymap::Bindings value = [] {
-        std::vector<std::string> invalid;
-        keymap::Bindings result = keymap::load([](const std::string& key) { return settings::text(key.c_str(), nullptr); }, invalid);
-        for (const std::string& entry : invalid) {
-            std::fprintf(stderr, "settings: ignored key name %s", entry.c_str());
-            std::fputc(10, stderr);
-            log::write("input", "ignored key name %s", entry.c_str());
+    static std::mutex mutex;
+    static std::atomic<const keymap::Bindings*> current{nullptr};
+    static std::atomic<uint32_t> built{0};
+    uint32_t revision = settings::revision();
+    if (built.load() != revision || !current.load()) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (built.load() != revision || !current.load()) {
+            std::vector<std::string> invalid;
+            keymap::Bindings* result = new keymap::Bindings(keymap::load([](const std::string& key) { return settings::text(key.c_str(), nullptr); }, invalid));
+            for (const std::string& entry : invalid) {
+                std::fprintf(stderr, "settings: ignored key name %s", entry.c_str());
+                std::fputc(10, stderr);
+                log::write("input", "ignored key name %s", entry.c_str());
+            }
+            current.store(result);
+            built.store(revision);
         }
-        return result;
-    }();
-    return value;
+    }
+    return *current.load();
 }
 
 void note_wheel(int delta) {
@@ -295,6 +304,12 @@ Sample device_sample(uint32_t channel) {
     }
     if (window == nullptr) {
         return result;
+    }
+    static int64_t last_reload = 0;
+    int64_t clock = now_ms();
+    if (clock - last_reload >= 500) {
+        last_reload = clock;
+        settings::reload_if_changed();
     }
     const keymap::Bindings& keys = bindings();
     for (size_t i = 0; i < keymap::kActionCount; i++) {

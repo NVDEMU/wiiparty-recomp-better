@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,6 +10,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "wp/cpu.h"
@@ -841,6 +843,22 @@ void test_live_settings() {
     wp::settings::load(path);
     CHECK(mute());
     CHECK(scale() == 3);
+    CHECK(!wp::settings::reload_if_changed());
+    {
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        file << "[video]\nscale=2\n[keys]\ntilt_left=Z\n";
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    {
+        std::ofstream file(path, std::ios::binary | std::ios::app);
+        file << "[audio]\nmute=0\n";
+    }
+    CHECK(wp::settings::reload_if_changed());
+    CHECK(scale() == 2 && !mute());
+    CHECK(wp::settings::text("keys.tilt_left", nullptr) == "Z");
+    CHECK(!wp::settings::reload_if_changed());
+    wp::settings::store("video.scale", "3");
+    CHECK(!wp::settings::reload_if_changed());
     std::vector<std::string> keys = wp::settings::keys();
     CHECK(std::find(keys.begin(), keys.end(), "system.options_menu") != keys.end());
     CHECK(wp::settings::flag("system.options_menu", nullptr));

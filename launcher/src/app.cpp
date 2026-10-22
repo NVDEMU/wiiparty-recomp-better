@@ -1548,11 +1548,15 @@ void App::gamepads_section(float width) {
         std::string player = std::string(wp::ui::label("pad.player")) + " " + std::to_string(slot);
         std::string choice = !used ? std::string() : wanted > 0 ? player : std::string(wp::ui::label("pad.player_auto")) + (slot > 0 ? " (" + std::to_string(slot) + ")" : std::string());
         ImGui::PushID(i);
-        row(width, name ? name : "?", wp::ui::label("pad.use"), 260.0f, 24.0f, [&] {
-            if (used && ui::button(choice.c_str(), Kind::Secondary, 150.0f, true)) {
-                store("input.gamepad_players", wp::padmap::assign(players, key, wanted >= 4 ? 0 : wanted + 1));
+        row(width, name ? name : "?", wp::ui::label("pad.use"), 204.0f, 24.0f, [&] {
+            if (used) {
+                if (ui::button(choice.c_str(), Kind::Secondary, 150.0f, true)) {
+                    store("input.gamepad_players", wp::padmap::assign(players, key, wanted >= 4 ? 0 : wanted + 1));
+                }
+            } else {
+                ImGui::Dummy(ImVec2(px(150), 1.0f));
             }
-            ImGui::SameLine(px(190));
+            ImGui::SameLine(0.0f, px(12));
             if (ui::toggle("use", used)) {
                 store("input.ignored_gamepads", wp::padmap::toggled(ignored, key));
             }

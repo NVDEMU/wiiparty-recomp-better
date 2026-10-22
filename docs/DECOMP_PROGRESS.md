@@ -1418,3 +1418,14 @@ Build cost: each addition of a replaced function regenerates `functions.h` and r
 
 - Build 2610-020 (game) and 2610-021 (launcher). Contents: button icons in the controls window, mouse motion with a held key, and a player per gamepad. Progress figures unchanged.
 
+## Live control changes, non-Latin Mii names and the gamepad switch (2026-10-22)
+
+- Report from the Parsec user: changing the tilt keys meant closing the game, losing the match and starting again, only to find them wrong. The launcher wrote `settings.ini` but the game read it once at start and built the key bindings once.
+- `settings::reload_if_changed` (`engine/src/platform/settings.cpp`): compares the text of the file with the text the engine last wrote or read (the standard library's file time has a resolution of one second here, so the modification time was not used); when it differs it reads the file again and raises the settings revision, which the live options already follow. The game checks every 500 ms from the input sampling; the engine's own writes (F10 menu) do not trigger a reload. `input::bindings()` now rebuilds when the revision changes (a new object is published atomically and the old one is kept, so threads that hold a reference never read freed memory). Tested with an external edit, an own write and no change.
+- Mii names in Japanese, Chinese or Korean appeared as question marks in the launcher: its embedded fonts are Latin only and the name is shown as typed. `launcher/src/ui.cpp` now merges system fonts as fallback sources (Windows: Yu Gothic, Meiryo or MS Gothic, Microsoft YaHei, Malgun Gothic; Linux: `fc-match` for `ja`, `zh-cn`, `ko`), read once and shared by both weights; the glyphs are built on demand. Checked with a database of three Miis (Japanese, Latin and Korean names) in the Miis page screenshot; the Latin text and the sizes did not change.
+- Gamepad switch drawn over the label: `ImGui::SameLine(offset)` counts from the window and the row puts its control at the right, so with the slot text shown (switch on) the switch jumped to the left over the controller name. The controller rows now use a fixed-width control (player button, then the switch) with a spacing instead of an offset; when a controller is switched off, a blank of the button's width keeps the switch in the same place. Not seen with a real controller.
+
+## Version 0.1.17-alpha (2026-10-22)
+
+- Build 2610-022 (game) and 2610-023 (launcher). Contents: the three fixes above.
+
