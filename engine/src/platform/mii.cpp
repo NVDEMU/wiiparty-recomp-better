@@ -192,9 +192,35 @@ bool Database::save(const std::filesystem::path& path) {
             return false;
         }
     }
+    std::filesystem::path backup = path;
+    backup += ".bak";
+    bool had_original = std::filesystem::exists(path, error) && !error;
+    if (had_original) {
+        error.clear();
+        std::filesystem::copy_file(path, backup, std::filesystem::copy_options::overwrite_existing, error);
+        if (error) {
+            std::filesystem::remove(temporary, error);
+            return false;
+        }
+    }
+    error.clear();
     std::filesystem::rename(temporary, path, error);
+    if (error && had_original) {
+        error.clear();
+        std::filesystem::remove(path, error);
+        if (!error) {
+            error.clear();
+            std::filesystem::rename(temporary, path, error);
+        }
+    }
     if (error) {
-        std::filesystem::remove(temporary, error);
+        std::error_code restore_error;
+        if (had_original && !std::filesystem::exists(path, restore_error)) {
+            restore_error.clear();
+            std::filesystem::copy_file(backup, path, std::filesystem::copy_options::overwrite_existing, restore_error);
+        }
+        restore_error.clear();
+        std::filesystem::remove(temporary, restore_error);
         return false;
     }
     valid_ = true;
