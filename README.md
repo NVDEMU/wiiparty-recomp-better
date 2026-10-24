@@ -29,7 +29,7 @@ Tracked in `games/wiiparty/analysis/progress.csv`:
 | **Audio Pipeline** | **100%** | Recompiled AX microcode; its output matches Dolphin's sample for sample on the title music; Wii Remote speaker sound is played. |
 | **Game Flow** | **90%** | A full 17-round Board Game Island game; every Free Play minigame played by hand, all 79 without faults. |
 | **Input System** | **80%** | Emulated Wii Remote over emulated Bluetooth; keyboard, mouse, up to four gamepads and real Wii Remotes; an optional window on the minigame explanation screens lists the PC key of each button. |
-| **PC Features** | **80%** | Single-file launcher, Mii file loading, in-game options menu (F10), key bindings, save backups, custom texture-pack manager, window-resolution presets, subtle color/contrast enhancement, screenshots, and input replay recording/playback. True ultrawide camera expansion and online play remain planned. |
+| **PC Features** | **80%** | Single-file launcher, Mii batch import/export with duplicate checks, in-game options menu (F10), key bindings, save backup/restore/delete, texture-pack folder/ZIP import with metadata and conflict warnings, custom window sizes, VSync, linear/nearest scaling, optional lightweight post-process anti-aliasing, color/contrast enhancement, live FPS/frame-time overlay, searchable screenshots, and input replays. True ultrawide camera expansion and online play remain planned. |
 
 ### Known Limitations
 
