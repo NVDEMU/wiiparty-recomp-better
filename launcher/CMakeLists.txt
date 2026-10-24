@@ -94,15 +94,17 @@ if(WIN32)
     target_link_libraries(launcher PRIVATE dwmapi winhttp ole32 uuid shell32 bthprops dxgi)
     target_link_options(launcher PRIVATE -static $<$<CONFIG:Release>:-s>)
 elseif(APPLE)
+    # Apple bundle versions must be numeric; the displayed launcher version may include a suffix.
+    string(REGEX REPLACE "[-+].*$" "" WP_MACOS_BUNDLE_VERSION "${WP_LAUNCHER_VERSION}")
     # A real .app bundle is required for normal Finder launches and DMG distribution.
     # Keep the native system runtimes dynamic; Apple's linker does not support Linux's
     # -static-libstdc++/-static-libgcc flags.
     set_target_properties(launcher PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.arelkair.wiipartyrecomp"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.nvdemu.wiipartyrecomp"
         MACOSX_BUNDLE_BUNDLE_NAME "Wii Party Recomp"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${WP_LAUNCHER_VERSION}"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${WP_LAUNCHER_BUILD}")
+        MACOSX_BUNDLE_BUNDLE_VERSION "${WP_MACOS_BUNDLE_VERSION}")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_options(launcher PRIVATE -static-libstdc++ -static-libgcc $<$<CONFIG:Release>:-s>)
 endif()
