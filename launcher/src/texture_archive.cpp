@@ -1,6 +1,7 @@
 #include "texture_archive.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
