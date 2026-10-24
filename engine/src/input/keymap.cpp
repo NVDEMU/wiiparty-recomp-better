@@ -132,7 +132,7 @@ std::string key_name(int code) {
 }
 
 bool reserved(int code) {
-    return code == kF10 || code == kF11 || code == kF12;
+    return code == kF10 || code == kF11 || code == kF12 || code == 0x75 || code == 0x76;
 }
 
 Parsed parse(const std::string& list) {
