@@ -151,7 +151,7 @@ std::vector<ScriptEntry> g_replay_segments;
 int g_replay_duration = 0;
 
 std::filesystem::path replay_path() {
-    return std::filesystem::path(game::description().data_directory) / "replays" / "last.wpr";
+    return std::filesystem::path(game::description().settings_file).parent_path() / "replays" / "last.wpr";
 }
 
 int elapsed_ms(std::chrono::steady_clock::time_point origin) {
