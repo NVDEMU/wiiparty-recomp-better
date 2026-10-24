@@ -2,6 +2,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
 #else
 #include <pthread.h>
 #include <time.h>
@@ -740,6 +742,25 @@ double thread_seconds(ThreadClock thread) {
     }
     auto ticks = [](const FILETIME& time) { return (static_cast<uint64_t>(time.dwHighDateTime) << 32) | time.dwLowDateTime; };
     return static_cast<double>(ticks(kernel) + ticks(user)) * 1e-7;
+}
+#elif defined(__APPLE__)
+using ThreadClock = thread_port_t;
+
+ThreadClock current_thread_clock() {
+    // macOS does not expose pthread_getcpuclockid. Keep a Mach thread port so
+    // we can query the CPU time of the specific game/GPU thread later.
+    return mach_thread_self();
+}
+
+double thread_seconds(ThreadClock thread) {
+    thread_basic_info_data_t info{};
+    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+    kern_return_t result = thread_info(thread, THREAD_BASIC_INFO, reinterpret_cast<thread_info_t>(&info), &count);
+    if (result != KERN_SUCCESS) {
+        return 0.0;
+    }
+    auto seconds = [](time_value_t time) { return static_cast<double>(time.seconds) + static_cast<double>(time.microseconds) * 1e-6; };
+    return seconds(info.user_time) + seconds(info.system_time);
 }
 #else
 using ThreadClock = clockid_t;
