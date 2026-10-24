@@ -1,5 +1,6 @@
 #include "wp/input.h"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
