@@ -47,10 +47,33 @@ constexpr Package kPackages[] = {
 };
 constexpr const char* kPython = "python3";
 constexpr const char* kCompiler = "c++";
-#elif defined(__linux__) && defined(__aarch64__)
+#elif defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
 constexpr Package kPackages[] = {
-    {"nodtool", "nodtool 1.4.4", "https://github.com/encounter/nod/releases/download/v1.4.4/nodtool-linux-aarch64",
-     "4180f9501dc0de2fb4841c865604fad91899798280f49015e7be8f89890ee37e", "nodtool-linux-aarch64", Packaging::Single, "nodtool", "nodtool"},
+    {"nodtool", "nodtool 2.0.0-alpha.12", "https://github.com/encounter/nod/releases/download/v2.0.0-alpha.12/nodtool-macos-arm64",
+     "524c0b27c0c4289e435df4474d288ea7e63d6a34814cc7c650231688dd1e53b4", "nodtool-macos-arm64", Packaging::Single, "nodtool", "nodtool"},
+    {"python3", "Python 3.11.17", "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17%2B20261021-aarch64-apple-darwin-install_only.tar.gz",
+     "b5199d66966141fb6d5447512d2b2fe0398d417da37b1949f58db3792d314eac", "cpython-3.11.17+20261021-aarch64-apple-darwin-install_only.tar.gz",
+     Packaging::Archive, "python", "python/python/bin"},
+    {"cmake", "CMake 4.4.3", "https://github.com/Kitware/CMake/releases/download/v4.4.3/cmake-4.4.3-macos-universal.tar.gz",
+     "0c5d65251c14cc884bfa16bdbed3c263ce5bffe2e21c0d0d00962cb0610464fa", "cmake-4.4.3-macos-universal.tar.gz", Packaging::Archive,
+     "cmake", "cmake/cmake-4.4.3-macos-universal/CMake.app/Contents/bin"},
+    {"ninja", "Ninja 1.13.2", "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip",
+     "c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b", "ninja-mac.zip", Packaging::Archive, "ninja", "ninja"},
+};
+constexpr const char* kPython = "python3";
+constexpr const char* kCompiler = "c++";
+#elif defined(__APPLE__) && defined(__x86_64__)
+constexpr Package kPackages[] = {
+    {"nodtool", "nodtool 2.0.0-alpha.12", "https://github.com/encounter/nod/releases/download/v2.0.0-alpha.12/nodtool-macos-x86_64",
+     "d1e7ba904c2e557fafbd3bf2d9b75a7901a2bf1568c0fb3a505fca0f30b0a833", "nodtool-macos-x86_64", Packaging::Single, "nodtool", "nodtool"},
+    {"python3", "Python 3.11.17", "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17%2B20261021-x86_64-apple-darwin-install_only.tar.gz",
+     "c647c272312c03301e399f0e0fdb2b876fed213ee6985cd2d232d588a316483f", "cpython-3.11.17+20261021-x86_64-apple-darwin-install_only.tar.gz",
+     Packaging::Archive, "python", "python/python/bin"},
+    {"cmake", "CMake 4.4.3", "https://github.com/Kitware/CMake/releases/download/v4.4.3/cmake-4.4.3-macos-universal.tar.gz",
+     "0c5d65251c14cc884bfa16bdbed3c263ce5bffe2e21c0d0d00962cb0610464fa", "cmake-4.4.3-macos-universal.tar.gz", Packaging::Archive,
+     "cmake", "cmake/cmake-4.4.3-macos-universal/CMake.app/Contents/bin"},
+    {"ninja", "Ninja 1.13.2", "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip",
+     "c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b", "ninja-mac.zip", Packaging::Archive, "ninja", "ninja"},
 };
 constexpr const char* kPython = "python3";
 constexpr const char* kCompiler = "c++";
