@@ -160,6 +160,9 @@ private:
     std::string picked_added_disc_;
     std::string picked_mii_;
     std::string picked_texture_pack_;
+    char custom_resolution_[32] = "1920x1080";
+    std::string resolution_message_;
+    bool resolution_message_failed_ = false;
     std::string texture_message_;
     bool texture_message_failed_ = false;
     std::string miis_message_;
