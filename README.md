@@ -7,13 +7,13 @@ Static recompilation of Wii Party for native PC.
 
 ![Project progress](docs/progress.svg)
 
-**[Download the latest build](https://github.com/arelkair/wiiparty-recomp/releases)** · Windows 10 and 11 (64-bit) · Linux x86_64 (experimental)
+**[Windows / Linux builds](https://github.com/arelkair/wiiparty-recomp/releases)** · **[macOS Nightly builds](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly)** (experimental; Apple Silicon and Intel)
 
 ## Overview
 
 Wii Party Recomp translates the game's PowerPC code into C++ and compiles it into a native Windows or Linux program. The game and Nintendo SDK code run translated; only what depends on the console hardware is replaced, and the hardware itself (GPU, DSP audio, Bluetooth, IOS, disc and NAND) is reimplemented underneath. The game's own audio microcode is recompiled too.
 
-No game files are distributed. The launcher builds the game on your PC from your own copy of the disc.
+No game files are distributed. The launcher builds the game on your PC from your own copy of the disc. This fork is adding native macOS support; macOS packages are experimental until they have passed full playthrough testing on physical Macs.
 
 ## Current State & Metrics
 
@@ -68,6 +68,15 @@ The launcher needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or la
 
 The build runs once, at low priority, with as many parallel jobs as your memory allows. Updating to a newer launcher rebuilds the game and keeps your saves and settings.
 
+### macOS (experimental)
+
+1. Download **[WiiPartyRecomp-macos-arm64.dmg](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly)** on Apple Silicon, or **WiiPartyRecomp-macos-x86_64.dmg** on an Intel Mac, from the Nightly release.
+2. Open the DMG and drag **Wii Party Recomp.app** to Applications.
+3. Open the launcher, choose your own Wii Party disc image, and press **Install**. The launcher downloads the build tools it needs and compiles the game locally.
+4. The first experimental builds are unsigned / not notarized. If macOS blocks the app, Control-click it in Finder and choose **Open**, then confirm the prompt.
+
+The DMG contains the launcher, not the game. You must provide your own legally obtained Wii Party disc image. The initial build must pass CI and then be tested through a full game playthrough on physical Macs.
+
 ## Controls
 
 Every key can be changed on the launcher's **Controls** page or in `games/wiiparty/settings.ini`. Up to four gamepads act as Wii Remotes 1 to 4, with gyroscope pointer, motion, rumble and player lights.
@@ -114,7 +123,7 @@ The launcher has a Miis page that links an online Mii editor and loads the Wii M
 
 - **Windows 10 and 11:** supported.
 - **Linux:** experimental. The launcher is an AppImage and the game plays with an OpenGL renderer, keyboard, mouse, audio, the F10 menu and custom texture packs (tested on Ubuntu 24.04; gamepad support is built in but not yet tested there). **Help wanted:** Linux testers with different GPUs and desktops, please open an issue or a discussion.
-- **macOS:** planned after Linux. **Help wanted:** if you have a Mac and would like to test builds in the future, please open an issue or a discussion.
+- **macOS:** experimental native build in progress. Apple Silicon and Intel DMGs are built by GitHub Actions. The build must still be tested through a full game playthrough on physical Macs; please report graphics, audio, controller, or launch issues.
 
 ## Repository Layout
 
