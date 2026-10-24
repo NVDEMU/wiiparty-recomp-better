@@ -109,9 +109,9 @@ std::vector<Record> import_records(const std::vector<uint8_t>& data) {
         }
     };
     if (data.size() >= kDatabaseSize && data[0] == 'R' && data[1] == 'N' && data[2] == 'O' && data[3] == 'D') {
-        for (size_t i = 0; i < kSlots; i++) {
-            take(kHeaderSize + i * kRecordSize);
-        }
+        Database database;
+        if (!database.parse(data)) return records;
+        for (size_t slot : database.used()) records.push_back(database.at(slot));
         return records;
     }
     constexpr size_t kStoreSize = kRecordSize + 2;
