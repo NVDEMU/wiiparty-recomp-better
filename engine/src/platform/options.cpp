@@ -16,7 +16,8 @@ namespace wp::options {
 namespace {
 
 constexpr const char* kLiveKeys[] = {
-    "video.scale",         "video.resolution",    "video.enhancements", "video.fullscreen", "video.copy_filter", "input.gamepads", "input.auto_grip",
+    "video.scale", "video.resolution", "video.enhancements", "video.antialiasing", "video.vsync",
+    "video.filtering", "video.performance_overlay", "video.fullscreen", "video.copy_filter", "input.gamepads", "input.auto_grip",
     "input.real_wiimote_mouse", "input.wake_on_mouse", "input.hide_cursor",   "input.controls_hint", "system.skip_notices", "system.options_menu", "audio.mute", "audio.wiimote_speaker", "saves.backups", "system.interface_language",
 };
 
