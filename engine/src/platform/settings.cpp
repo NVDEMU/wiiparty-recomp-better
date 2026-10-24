@@ -23,6 +23,8 @@ struct Option {
 
 const Option kBaseOptions[] = {
     {"video.scale", "1"},
+    {"video.resolution", "auto"},
+    {"video.enhancements", "1"},
     {"video.fullscreen", "0"},
     {"video.copy_filter", "1"},
     {"video.dump_textures", "0"},
