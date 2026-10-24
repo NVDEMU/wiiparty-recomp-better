@@ -37,6 +37,8 @@ std::string system_name() {
         return name + " (build " + std::to_string(info.dwBuildNumber) + ")";
     }
     return "Windows";
+#elif defined(__APPLE__)
+    return "macOS";
 #else
     std::ifstream file("/etc/os-release");
     for (std::string line; std::getline(file, line);) {
@@ -58,6 +60,12 @@ std::string processor_name() {
     if (RegGetValueW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"ProcessorNameString", RRF_RT_REG_SZ, nullptr, buffer, &size) == ERROR_SUCCESS) {
         name = utf8_of(fs::path(buffer));
     }
+#elif defined(__APPLE__)
+#if defined(__arm64__) || defined(__aarch64__)
+    name = "Apple Silicon";
+#elif defined(__x86_64__)
+    name = "Intel";
+#endif
 #else
     std::ifstream file("/proc/cpuinfo");
     for (std::string line; std::getline(file, line);) {
