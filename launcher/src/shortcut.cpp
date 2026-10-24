@@ -44,6 +44,33 @@ bool create_desktop_shortcut(const std::filesystem::path& target, const std::fil
         CoUninitialize();
     }
     return ok;
+#elif defined(__APPLE__)
+    (void)folder;
+    (void)icon;
+    std::filesystem::path app = target;
+    while (!app.empty() && app.extension() != ".app") {
+        app = app.parent_path();
+    }
+    if (app.empty()) {
+        error = "Wii Party Recomp.app was not found";
+        return false;
+    }
+    std::string home = environment_value("HOME");
+    std::filesystem::path desktop = path_from(home) / "Desktop";
+    std::error_code failure;
+    if (!std::filesystem::is_directory(desktop, failure)) {
+        error = "Desktop folder not found";
+        return false;
+    }
+    std::filesystem::path shortcut = desktop / path_from(name + ".app");
+    std::filesystem::remove(shortcut, failure);
+    failure.clear();
+    std::filesystem::create_symlink(app, shortcut, failure);
+    if (failure) {
+        error = failure.message();
+        return false;
+    }
+    return true;
 #else
     std::string home = environment_value("HOME");
     std::string data = environment_value("XDG_DATA_HOME");
