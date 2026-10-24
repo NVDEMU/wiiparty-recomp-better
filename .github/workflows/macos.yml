@@ -1,0 +1,116 @@
+name: macOS
+
+on:
+  push:
+    branches: [main, macos-support]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure native game runtime
+        run: >-
+          cmake -S . -B build/engine -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DWP_FETCH_SDL3=ON
+          -DWP_REQUIRE_SDL3=ON
+
+      - name: Compile native game runtime
+        run: cmake --build build/engine --target wp_engine --parallel 2
+
+      - name: Configure launcher
+        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile launcher app
+        run: cmake --build build/launcher --target launcher --parallel 2
+
+      - name: Verify app bundle
+        run: |
+          test -d "build/launcher/Wii Party Recomp.app"
+          test -x "build/launcher/Wii Party Recomp.app/Contents/MacOS/Wii Party Recomp"
+          file "build/launcher/Wii Party Recomp.app/Contents/MacOS/Wii Party Recomp"
+          plutil -lint "build/launcher/Wii Party Recomp.app/Contents/Info.plist"
+
+      - name: Package DMG
+        run: |
+          hdiutil create \
+            -volname "Wii Party Recomp" \
+            -srcfolder "build/launcher/Wii Party Recomp.app" \
+            -ov -format UDZO \
+            "WiiPartyRecomp-macos-${{ matrix.arch }}.dmg"
+          shasum -a 256 "WiiPartyRecomp-macos-${{ matrix.arch }}.dmg" > "SHA256-${{ matrix.arch }}.txt"
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiiparty-macos-${{ matrix.arch }}
+          path: |
+            WiiPartyRecomp-macos-${{ matrix.arch }}.dmg
+            SHA256-${{ matrix.arch }}.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  nightly:
+    name: Publish macOS Nightly
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download both installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wiiparty-macos-*
+          merge-multiple: true
+          path: dist
+
+      - name: Move Nightly tag to this build
+        run: |
+          git tag -f Nightly "$GITHUB_SHA"
+          git push --force origin refs/tags/Nightly
+
+      - name: Publish Nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Nightly
+          name: Nightly
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          generate_release_notes: false
+          body: |
+            Automatic macOS builds of Wii Party Recomp from the latest successful `main` commit.
+
+            **Apple Silicon:** `WiiPartyRecomp-macos-arm64.dmg`
+            **Intel:** `WiiPartyRecomp-macos-x86_64.dmg`
+
+            These builds are experimental and have not yet been verified through a full game playthrough on physical Macs. Bring your own legally obtained Wii Party disc image; game data is not included.
+          files: |
+            dist/WiiPartyRecomp-macos-arm64.dmg
+            dist/WiiPartyRecomp-macos-x86_64.dmg
+            dist/SHA256-arm64.txt
+            dist/SHA256-x86_64.txt
