@@ -250,6 +250,11 @@ App::~App() {
 }
 
 void App::start_update_check() {
+#ifdef __APPLE__
+    // macOS launcher updates replace the complete .app bundle, so the executable-only
+    // Windows/Linux updater must not run on this platform. Install updates from the DMG.
+    return;
+#else
     if (pref("check_updates") == "0" || pref("offline") == "1") {
         return;
     }
@@ -266,6 +271,7 @@ void App::start_update_check() {
         }
         wake_main_loop();
     }).detach();
+#endif
 }
 
 void App::start_estimate() {
