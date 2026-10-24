@@ -1,4 +1,5 @@
 #include "wp/gx_render.h"
+#include "wp/performance_overlay.h"
 
 #include "gx_render_common.h"
 #include "../platform/gl_window.h"
@@ -94,10 +95,31 @@ void main() {
 
 const char* kPresentFragment = R"GLSL(#version 410 core
 uniform sampler2D frame;
+uniform float enhancement;
+uniform float antialiasing;
 in vec2 uv;
 out vec4 color;
+float luminance(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 void main() {
-    color = vec4(texture(frame, uv).rgb, 1.0);
+    vec3 source = texture(frame, uv).rgb;
+    if (antialiasing > 0.5) {
+        vec2 texel = 1.0 / vec2(textureSize(frame, 0));
+        vec3 north = texture(frame, uv + vec2(0.0, -texel.y)).rgb;
+        vec3 south = texture(frame, uv + vec2(0.0, texel.y)).rgb;
+        vec3 west = texture(frame, uv + vec2(-texel.x, 0.0)).rgb;
+        vec3 east = texture(frame, uv + vec2(texel.x, 0.0)).rgb;
+        float center_luma = luminance(source);
+        float low_luma = min(center_luma, min(min(luminance(north), luminance(south)), min(luminance(west), luminance(east))));
+        float high_luma = max(center_luma, max(max(luminance(north), luminance(south)), max(luminance(west), luminance(east))));
+        if (high_luma - low_luma > max(0.0312, high_luma * 0.125))
+            source = mix(source, (north + south + east + west) * 0.25, 0.35);
+    }
+    if (enhancement > 0.5) {
+        source = (source - vec3(0.5)) * 1.06 + vec3(0.5);
+        float luminance = dot(source, vec3(0.2126, 0.7152, 0.0722));
+        source = mix(vec3(luminance), source, 1.04);
+    }
+    color = vec4(clamp(source, 0.0, 1.0), 1.0);
 }
 )GLSL";
 
@@ -667,6 +689,8 @@ struct PendingWriteBack {
 struct Program {
     GLuint id = 0;
     GLint flip = -1;
+    GLint enhancement = -1;
+    GLint antialiasing = -1;
 };
 
 struct Device {
@@ -693,6 +717,9 @@ struct Device {
     std::vector<GLuint> free_buffers;
     std::vector<PendingWriteBack> write_backs;
     GLuint overlay_texture = 0;
+    GLuint performance_texture = 0;
+    uint32_t performance_width = 0;
+    uint32_t performance_height = 0;
     uint32_t overlay_width = 0;
     uint32_t overlay_height = 0;
     uint64_t overlay_version = 0;
@@ -912,6 +939,8 @@ bool create_pipeline() {
         return false;
     }
     bind_samplers(g_device.present.id, {"frame"});
+    g_device.present.enhancement = gl.GetUniformLocation(g_device.present.id, "enhancement");
+    g_device.present.antialiasing = gl.GetUniformLocation(g_device.present.id, "antialiasing");
     bind_samplers(g_device.overlay.id, {"overlay"});
     bind_samplers(g_device.copy.id, {"color_source", "depth_source"});
     gl.UniformBlockBinding(g_device.copy.id, gl.GetUniformBlockIndex(g_device.copy.id, "CopyConstants"), 1);
@@ -1778,6 +1807,35 @@ void draw_titlebar(int client_width, int client_height, int bar) {
     gl.DrawArrays(GL_TRIANGLES, 0, 3);
 }
 
+void draw_performance_overlay(int client_width, int client_height) {
+    using Clock = std::chrono::steady_clock;
+    static Clock::time_point previous_frame = Clock::now();
+    static Clock::time_point previous_update{};
+    static double fps = 0.0, frame_ms = 0.0;
+    Clock::time_point now = Clock::now();
+    double elapsed = std::chrono::duration<double>(now - previous_frame).count();
+    previous_frame = now;
+    if (elapsed > 0.0 && elapsed < 10.0) { frame_ms = elapsed * 1000.0; fps = 1.0 / elapsed; }
+    if (!settings::flag("video.performance_overlay", nullptr)) return;
+    if (previous_update.time_since_epoch().count() == 0 || now - previous_update >= std::chrono::milliseconds(200)) {
+        options::Image image = wp::performance_overlay::make(fps, frame_ms);
+        upload_image(g_device.performance_texture, g_device.performance_width, g_device.performance_height, image);
+        previous_update = now;
+    }
+    if (!g_device.performance_texture) return;
+    int width = static_cast<int>(g_device.performance_width), height = static_cast<int>(g_device.performance_height);
+    gl.Viewport(12, client_height - height - 12, width, height);
+    gl.Enable(GL_BLEND);
+    gl.BlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+    gl.BlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+    use_fullscreen(g_device.overlay, 1.0f);
+    gl.ActiveTexture(GL_TEXTURE0);
+    gl.BindTexture(GL_TEXTURE_2D, g_device.performance_texture);
+    gl.BindSampler(0, g_device.linear_sampler);
+    gl.DrawArrays(GL_TRIANGLES, 0, 3);
+    gl.Disable(GL_BLEND);
+}
+
 void draw_overlay(int client_width, int client_height) {
     options::Image image;
     if (options::take_overlay(g_device.overlay_version, image, g_device.overlay_visible) && !image.pixels.empty()) {
@@ -1829,12 +1887,22 @@ bool present_frame(void* window_handle, double aspect) {
     gl.Viewport(static_cast<GLint>((client_width - width) / 2), static_cast<GLint>((area - height) / 2), static_cast<GLsizei>(width),
                 static_cast<GLsizei>(height));
     use_fullscreen(g_device.present, 1.0f);
+    gl.Uniform1f(g_device.present.enhancement, settings::flag("video.enhancements", nullptr) ? 1.0f : 0.0f);
+    gl.Uniform1f(g_device.present.antialiasing, settings::flag("video.antialiasing", nullptr) ? 1.0f : 0.0f);
     gl.ActiveTexture(GL_TEXTURE0);
     gl.BindTexture(GL_TEXTURE_2D, g_device.frame.texture);
-    gl.BindSampler(0, g_device.linear_sampler);
+    bool nearest = settings::text("video.filtering", nullptr) == "nearest";
+    gl.BindSampler(0, nearest ? g_device.point_sampler : g_device.linear_sampler);
     gl.DrawArrays(GL_TRIANGLES, 0, 3);
     draw_overlay(client_width, client_height);
+    draw_performance_overlay(client_width, client_height - bar);
     draw_titlebar(client_width, client_height, bar);
+    static int previous_swap_interval = -1;
+    int swap_interval = settings::flag("video.vsync", nullptr) ? 1 : 0;
+    if (previous_swap_interval != swap_interval) {
+        SDL_GL_SetSwapInterval(swap_interval);
+        previous_swap_interval = swap_interval;
+    }
     SDL_GL_SwapWindow(window);
     apply_scale();
     return true;

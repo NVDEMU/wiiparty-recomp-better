@@ -71,6 +71,20 @@ void apply_interface_language() {
     ui::set_language(settings::text("system.interface_language", "WP_INTERFACE_LANGUAGE"));
 }
 
+void requested_window_size(int& width, int& height) {
+    std::string preset = settings::text("video.resolution", nullptr);
+    width = kWindowWidth;
+    height = static_cast<int>(width / g_aspect + 0.5);
+    if (preset.empty() || preset == "auto") return;
+    int requested_width = 0;
+    int requested_height = 0;
+    if (std::sscanf(preset.c_str(), "%dx%d", &requested_width, &requested_height) == 2 &&
+        requested_width >= 640 && requested_width <= 7680 && requested_height >= 480 && requested_height <= 4320) {
+        width = requested_width;
+        height = requested_height;
+    }
+}
+
 WINDOWPLACEMENT g_placement{};
 bool g_fullscreen = false;
 
@@ -137,6 +151,14 @@ void note_key(WPARAM key, LPARAM lparam) {
 }
 
 void apply_option(HWND window, const std::string& key) {
+    if (key == "video.resolution") {
+        int width = 0, height = 0;
+        requested_window_size(width, height);
+        RECT rect{0, 0, width, height};
+        AdjustWindowRect(&rect, static_cast<DWORD>(GetWindowLong(window, GWL_STYLE)), FALSE);
+        SetWindowPos(window, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
     if (key == "system.interface_language") {
         apply_interface_language();
         options::refresh_menu(window);
@@ -167,6 +189,14 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         bool repeat = (lparam & (1 << 30)) != 0;
         if (wparam == VK_F12 && !repeat) {
             gx::request_capture();
+            return 0;
+        }
+        if (wparam == VK_F6 && !repeat) {
+            input::toggle_replay_recording();
+            return 0;
+        }
+        if (wparam == VK_F7 && !repeat) {
+            input::start_replay_playback();
             return 0;
         }
         if (wparam == VK_F11 && !repeat) {
@@ -308,6 +338,7 @@ void window_thread() {
     SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
     int client_width = kWindowWidth;
     int client_height = static_cast<int>(client_width / g_aspect + 0.5);
+    requested_window_size(client_width, client_height);
     RECT rect{0, 0, client_width, client_height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
     while ((rect.right - rect.left > work.right - work.left || rect.bottom - rect.top > work.bottom - work.top) && client_width > 320) {

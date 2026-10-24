@@ -9,6 +9,12 @@ namespace {
 
 constexpr Label kEnglishLabels[] = {
     {"video.scale", "Internal resolution"},
+    {"video.resolution", "Window resolution preset"},
+    {"video.enhancements", "Visual enhancements (subtle color and contrast)"},
+    {"video.antialiasing", "Lightweight post-process anti-aliasing"},
+    {"video.vsync", "Vertical sync (VSync)"},
+    {"video.filtering", "Presentation scaling filter"},
+    {"video.performance_overlay", "On-screen FPS / frame-time overlay"},
     {"video.fullscreen", "Full screen"},
     {"video.copy_filter", "Anti-flicker filter"},
     {"video.custom_textures", "Custom textures"},
@@ -72,6 +78,12 @@ constexpr Label kEnglishLabels[] = {
 
 constexpr Label kSpanishLabels[] = {
     {"video.scale", "Resolución interna"},
+    {"video.resolution", "Resolución de ventana"},
+    {"video.enhancements", "Mejoras visuales sutiles (color y contraste)"},
+    {"video.antialiasing", "Antialiasing ligero de posprocesado"},
+    {"video.vsync", "Sincronización vertical (VSync)"},
+    {"video.filtering", "Filtro de escalado"},
+    {"video.performance_overlay", "Superposición de FPS / tiempo de fotograma"},
     {"video.fullscreen", "Pantalla completa"},
     {"video.copy_filter", "Filtro anti-parpadeo"},
     {"video.custom_textures", "Texturas personalizadas"},
@@ -135,6 +147,12 @@ constexpr Label kSpanishLabels[] = {
 
 constexpr Label kGalicianLabels[] = {
     {"video.scale", "Resolución interna"},
+    {"video.resolution", "Resolución da xanela"},
+    {"video.enhancements", "Melloras visuais sutís (cor e contraste)"},
+    {"video.antialiasing", "Antialiasing lixeiro de posprocesado"},
+    {"video.vsync", "Sincronización vertical (VSync)"},
+    {"video.filtering", "Filtro de escalado"},
+    {"video.performance_overlay", "Superposición de FPS / tempo de fotograma"},
     {"video.fullscreen", "Pantalla completa"},
     {"video.copy_filter", "Filtro antiparpadeo"},
     {"video.custom_textures", "Texturas personalizadas"},

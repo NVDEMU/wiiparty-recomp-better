@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 #include "layout.h"
@@ -48,7 +49,25 @@ void App::list_captures() {
             files.push_back(entry.path());
         }
     }
-    std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) { return a.filename() > b.filename(); });
+    std::string filter(capture_search_);
+    std::transform(filter.begin(), filter.end(), filter.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    files.erase(std::remove_if(files.begin(), files.end(), [&](const fs::path& path) {
+        std::string name = utf8_of(path.filename());
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return !filter.empty() && name.find(filter) == std::string::npos;
+    }), files.end());
+    if (capture_sort_ == 1) {
+        std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) { return a.filename() < b.filename(); });
+    } else if (capture_sort_ == 2) {
+        std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
+            std::string left = utf8_of(a.filename()), right = utf8_of(b.filename());
+            std::transform(left.begin(), left.end(), left.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::transform(right.begin(), right.end(), right.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            return left < right;
+        });
+    } else {
+        std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) { return a.filename() > b.filename(); });
+    }
     captures_total_ = files.size();
     for (size_t i = 0; i < files.size() && i < kShownCaptures; i++) {
         Capture capture;
@@ -332,8 +351,59 @@ void App::captures_page(float width) {
         SDL_OpenURL(file_url(folder).c_str());
     }
     ImGui::SetCursorScreenPos(after);
+    ImGui::SetNextItemWidth(px(230));
+    if (ImGui::InputText("Search screenshots", capture_search_, sizeof(capture_search_))) {
+        list_captures();
+    }
+    ImGui::SameLine();
+    const char* sort_labels[] = {"Newest first", "Oldest first", "Name A-Z"};
+    if (ui::button(sort_labels[capture_sort_ % 3], Kind::Secondary, 128.0f)) {
+        capture_sort_ = (capture_sort_ + 1) % 3;
+        list_captures();
+    }
+    ImGui::SameLine();
+    std::string capture_count = std::to_string(captures_total_) + " screenshot(s)";
+    ui::text(capture_count.c_str(), Font::Regular, ui::size::kDetail, p.secondary);
+    ui::gap(10);
+
+    fs::path replay_folder = project_.game_folder() / "replays";
+    fs::path replay_file = replay_folder / "last.wpr";
+    {
+        std::error_code error;
+        bool recorded = fs::is_regular_file(replay_file, error);
+        Card replay_card(width);
+        std::string detail = recorded
+            ? "Last input replay is saved. Start the game and press F7 to play it back."
+            : "Press F6 while playing to record button/pointer input; press F6 again to save it. F7 replays the last trace.";
+        row(width, "Input replays", detail.c_str(), 140.0f, 36.0f, [&] {
+            if (ui::button("Open replays", Kind::Secondary, 140.0f)) {
+                std::error_code folder_error;
+                fs::create_directories(replay_folder, folder_error);
+                SDL_OpenURL(file_url(replay_folder).c_str());
+            }
+        });
+        replay_card.end();
+        ui::gap(16);
+    }
+
     if (!captures_listed_) {
         list_captures();
+    }
+    size_t selected_count = 0;
+    const Capture* selected_capture = nullptr;
+    for (const Capture& capture : captures_) {
+        if (capture.selected) { selected_count++; selected_capture = &capture; }
+    }
+    if (selected_count == 1 && selected_capture) {
+        ImVec2 actions_at = ImGui::GetCursorScreenPos();
+        if (ui::button("Open selected image", Kind::Secondary, 170.0f)) {
+            SDL_OpenURL(file_url(selected_capture->path).c_str());
+        }
+        ImGui::SameLine();
+        if (ui::button("Copy image path", Kind::Secondary, 140.0f)) {
+            SDL_SetClipboardText(utf8_of(selected_capture->path).c_str());
+        }
+        ImGui::SetCursorScreenPos(ImVec2(actions_at.x, actions_at.y + px(42)));
     }
     if (captures_.empty()) {
         Card card(width);

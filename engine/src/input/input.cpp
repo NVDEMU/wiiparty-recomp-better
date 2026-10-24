@@ -1,14 +1,18 @@
 #include "wp/input.h"
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "wp/game.h"
@@ -83,6 +87,7 @@ struct ScriptEntry {
     bool pointer = false;
     float x = 0.0f;
     float y = 0.0f;
+    uint32_t channel = 0;
 };
 
 std::vector<ScriptEntry> parse_script(const char* text) {
@@ -103,20 +108,26 @@ std::vector<ScriptEntry> parse_script(const char* text) {
         entry.from = std::atoi(parts[0].c_str());
         entry.to = std::atoi(parts[1].c_str());
         entry.buttons = static_cast<uint32_t>(std::strtoul(parts[2].c_str(), nullptr, 16));
-        if (parts.size() >= 5) {
+        if (parts.size() >= 7) {
+            entry.pointer = parts[3] == "1";
+            entry.x = static_cast<float>(std::atof(parts[4].c_str()));
+            entry.y = static_cast<float>(std::atof(parts[5].c_str()));
+            entry.channel = static_cast<uint32_t>(std::strtoul(parts[6].c_str(), nullptr, 10));
+        } else if (parts.size() >= 5) {
             entry.pointer = true;
             entry.x = static_cast<float>(std::atof(parts[3].c_str()));
             entry.y = static_cast<float>(std::atof(parts[4].c_str()));
+            if (parts.size() >= 6) entry.channel = static_cast<uint32_t>(std::strtoul(parts[5].c_str(), nullptr, 10));
         }
         entries.push_back(entry);
     }
     return entries;
 }
 
-Sample scripted(const std::vector<ScriptEntry>& script, int milliseconds) {
+Sample scripted(const std::vector<ScriptEntry>& script, int milliseconds, uint32_t channel) {
     Sample result;
     for (const ScriptEntry& entry : script) {
-        if (milliseconds >= entry.from && milliseconds < entry.to) {
+        if (entry.channel == channel && milliseconds >= entry.from && milliseconds < entry.to) {
             result.buttons |= entry.buttons;
             if (entry.pointer) {
                 result.pointer_valid = true;
@@ -126,6 +137,98 @@ Sample scripted(const std::vector<ScriptEntry>& script, int milliseconds) {
         }
     }
     return result;
+}
+
+std::mutex g_replay_mutex;
+bool g_replay_recording = false;
+bool g_replay_playing = false;
+std::chrono::steady_clock::time_point g_record_origin;
+std::chrono::steady_clock::time_point g_play_origin;
+std::vector<ScriptEntry> g_record_segments;
+std::array<ScriptEntry, 4> g_record_current{};
+std::array<bool, 4> g_record_started{};
+std::vector<ScriptEntry> g_replay_segments;
+int g_replay_duration = 0;
+
+std::filesystem::path replay_path() {
+    return std::filesystem::path(game::description().settings_file).parent_path() / "replays" / "last.wpr";
+}
+
+int elapsed_ms(std::chrono::steady_clock::time_point origin) {
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - origin).count());
+}
+
+bool same_state(const ScriptEntry& a, const Sample& b) {
+    return a.buttons == b.buttons && a.pointer == b.pointer_valid &&
+           (!a.pointer || (a.x == b.pointer_x && a.y == b.pointer_y));
+}
+
+void record_sample(uint32_t channel, const Sample& sample) {
+    if (channel >= g_record_current.size()) return;
+    std::lock_guard<std::mutex> lock(g_replay_mutex);
+    if (!g_replay_recording) return;
+    int now = std::max(0, elapsed_ms(g_record_origin));
+    if (!g_record_started[channel]) {
+        ScriptEntry entry;
+        entry.from = now; entry.to = now + 1; entry.buttons = sample.buttons;
+        entry.pointer = sample.pointer_valid; entry.x = sample.pointer_x; entry.y = sample.pointer_y; entry.channel = channel;
+        g_record_current[channel] = entry;
+        g_record_started[channel] = true;
+        return;
+    }
+    ScriptEntry& current = g_record_current[channel];
+    if (same_state(current, sample)) {
+        current.to = std::max(current.to, now + 1);
+        return;
+    }
+    current.to = std::max(now, current.from + 1);
+    g_record_segments.push_back(current);
+    current.from = now; current.to = now + 1; current.buttons = sample.buttons;
+    current.pointer = sample.pointer_valid; current.x = sample.pointer_x; current.y = sample.pointer_y; current.channel = channel;
+}
+
+bool playback_sample(uint32_t channel, Sample& result) {
+    std::lock_guard<std::mutex> lock(g_replay_mutex);
+    if (!g_replay_playing) return false;
+    int now = elapsed_ms(g_play_origin);
+    if (now > g_replay_duration) {
+        g_replay_playing = false;
+        return false;
+    }
+    result = scripted(g_replay_segments, now, channel);
+    return true;
+}
+
+void save_replay_recording() {
+    std::vector<ScriptEntry> segments;
+    {
+        std::lock_guard<std::mutex> lock(g_replay_mutex);
+        int end = std::max(1, elapsed_ms(g_record_origin) + 1);
+        for (size_t i = 0; i < g_record_current.size(); i++) {
+            if (g_record_started[i]) {
+                g_record_current[i].to = std::max(end, g_record_current[i].from + 1);
+                g_record_segments.push_back(g_record_current[i]);
+                g_record_started[i] = false;
+            }
+        }
+        segments.swap(g_record_segments);
+    }
+    std::filesystem::path path = replay_path();
+    std::error_code error;
+    std::filesystem::create_directories(path.parent_path(), error);
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+    for (const ScriptEntry& entry : segments) {
+        file << entry.from << ',' << entry.to << ',' << std::hex << entry.buttons << std::dec << ','
+             << (entry.pointer ? 1 : 0) << ',' << entry.x << ',' << entry.y << ',' << entry.channel << ';';
+    }
+    file.flush();
+    if (file) {
+        std::fprintf(stderr, "replay saved: %s (%zu input segments)\n", path.string().c_str(), segments.size());
+        log::write("replay", "saved %s (%zu input segments)", path.string().c_str(), segments.size());
+    } else {
+        std::fprintf(stderr, "replay could not be saved: %s\n", path.string().c_str());
+        log::write("replay", "could not save %s", path.string().c_str());
+    }
 }
 
 }
@@ -158,6 +261,71 @@ void note_wheel(int delta) {
     } else if (delta < 0) {
         g_wheel_down = now_ms();
     }
+}
+
+bool replay_recording() {
+    std::lock_guard<std::mutex> lock(g_replay_mutex);
+    return g_replay_recording;
+}
+
+bool replay_playing() {
+    std::lock_guard<std::mutex> lock(g_replay_mutex);
+    return g_replay_playing;
+}
+
+void toggle_replay_recording() {
+    bool save = false;
+    {
+        std::lock_guard<std::mutex> lock(g_replay_mutex);
+        if (g_replay_recording) {
+            g_replay_recording = false;
+            save = true;
+        } else {
+            g_replay_playing = false;
+            g_replay_segments.clear();
+            g_replay_duration = 0;
+            g_record_segments.clear();
+            g_record_current = {};
+            g_record_started = {};
+            g_record_origin = std::chrono::steady_clock::now();
+            g_replay_recording = true;
+        }
+    }
+    if (save) save_replay_recording();
+    else {
+        std::fprintf(stderr, "replay recording started (F6 to stop)\n");
+        log::write("replay", "recording started");
+    }
+}
+
+bool start_replay_playback() {
+    std::filesystem::path path = replay_path();
+    std::ifstream file(path, std::ios::binary);
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (content.empty()) {
+        std::fprintf(stderr, "no replay found: %s\n", path.string().c_str());
+        log::write("replay", "no replay found: %s", path.string().c_str());
+        return false;
+    }
+    std::vector<ScriptEntry> segments = parse_script(content.c_str());
+    int duration = 0;
+    for (const ScriptEntry& entry : segments) duration = std::max(duration, entry.to);
+    if (segments.empty() || duration <= 0) {
+        std::fprintf(stderr, "replay is empty or invalid: %s\n", path.string().c_str());
+        log::write("replay", "invalid replay: %s", path.string().c_str());
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(g_replay_mutex);
+        g_replay_recording = false;
+        g_replay_segments = std::move(segments);
+        g_replay_duration = duration;
+        g_play_origin = std::chrono::steady_clock::now();
+        g_replay_playing = true;
+    }
+    std::fprintf(stderr, "replay playback started: %s\n", path.string().c_str());
+    log::write("replay", "playback started: %s", path.string().c_str());
+    return true;
 }
 
 namespace {
@@ -258,6 +426,8 @@ bool connected(uint32_t channel) {
 }
 
 Sample device_sample(uint32_t channel) {
+    Sample replay;
+    if (playback_sample(channel, replay)) return replay;
     static const char* script_text = std::getenv("WP_INPUT_SCRIPT");
     if (script_text) {
         static const std::vector<ScriptEntry> script = [] {
@@ -275,9 +445,11 @@ Sample device_sample(uint32_t channel) {
         int elapsed = by_frames ? static_cast<int>(gx::frames_drawn() * 1000 / 60)
                                 : static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - origin).count());
         if (channel != 0) {
-            return gamepad_sample(channel, sideways_grip(false));
+            bool explicit_channel = false;
+            for (const ScriptEntry& entry : script) if (entry.channel == channel) { explicit_channel = true; break; }
+            if (!explicit_channel) return gamepad_sample(channel, sideways_grip(false));
         }
-        return scripted(script, elapsed);
+        return scripted(script, elapsed, channel);
     }
     Sample result;
     if (const char* forced = std::getenv("WP_INPUT_BUTTONS")) {
@@ -398,6 +570,7 @@ Sample sample(uint32_t channel) {
     if (channel == 0 && skipping_notice()) {
         result.buttons |= kButtonA;
     }
+    record_sample(channel, result);
     return result;
 }
 

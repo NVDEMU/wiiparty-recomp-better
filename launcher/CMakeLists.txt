@@ -32,6 +32,7 @@ FetchContent_Declare(inter
     URL_HASH SHA256=9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e
     DOWNLOAD_EXTRACT_TIMESTAMP ON)
 FetchContent_MakeAvailable(sdl3 imgui inter)
+find_package(ZLIB REQUIRED)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -48,6 +49,7 @@ set(WP_ENGINE "${CMAKE_CURRENT_SOURCE_DIR}/../engine")
 add_executable(launcher WIN32
     src/main.cpp
     src/app.cpp
+    src/texture_archive.cpp
     src/ui.cpp
     src/keys.cpp
     src/payload.cpp
@@ -87,7 +89,7 @@ target_include_directories(launcher PRIVATE ${WP_ENGINE}/include src)
 target_include_directories(launcher SYSTEM PRIVATE ${WP_ENGINE}/../third_party/stb)
 target_compile_definitions(launcher PRIVATE WP_LAUNCHER_VERSION="${WP_LAUNCHER_VERSION}" WP_LAUNCHER_BUILD="${WP_LAUNCHER_BUILD}")
 target_compile_options(launcher PRIVATE -Wall -Wextra)
-target_link_libraries(launcher PRIVATE imgui)
+target_link_libraries(launcher PRIVATE imgui ZLIB::ZLIB)
 
 if(WIN32)
     target_sources(launcher PRIVATE res/launcher.rc)

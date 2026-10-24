@@ -109,9 +109,9 @@ std::vector<Record> import_records(const std::vector<uint8_t>& data) {
         }
     };
     if (data.size() >= kDatabaseSize && data[0] == 'R' && data[1] == 'N' && data[2] == 'O' && data[3] == 'D') {
-        for (size_t i = 0; i < kSlots; i++) {
-            take(kHeaderSize + i * kRecordSize);
-        }
+        Database database;
+        if (!database.parse(data)) return records;
+        for (size_t slot : database.used()) records.push_back(database.at(slot));
         return records;
     }
     constexpr size_t kStoreSize = kRecordSize + 2;
@@ -192,9 +192,35 @@ bool Database::save(const std::filesystem::path& path) {
             return false;
         }
     }
+    std::filesystem::path backup = path;
+    backup += ".bak";
+    bool had_original = std::filesystem::exists(path, error) && !error;
+    if (had_original) {
+        error.clear();
+        std::filesystem::copy_file(path, backup, std::filesystem::copy_options::overwrite_existing, error);
+        if (error) {
+            std::filesystem::remove(temporary, error);
+            return false;
+        }
+    }
+    error.clear();
     std::filesystem::rename(temporary, path, error);
+    if (error && had_original) {
+        error.clear();
+        std::filesystem::remove(path, error);
+        if (!error) {
+            error.clear();
+            std::filesystem::rename(temporary, path, error);
+        }
+    }
     if (error) {
-        std::filesystem::remove(temporary, error);
+        std::error_code restore_error;
+        if (had_original && !std::filesystem::exists(path, restore_error)) {
+            restore_error.clear();
+            std::filesystem::copy_file(backup, path, std::filesystem::copy_options::overwrite_existing, restore_error);
+        }
+        restore_error.clear();
+        std::filesystem::remove(temporary, restore_error);
         return false;
     }
     valid_ = true;

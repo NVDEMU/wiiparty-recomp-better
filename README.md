@@ -29,7 +29,7 @@ Tracked in `games/wiiparty/analysis/progress.csv`:
 | **Audio Pipeline** | **100%** | Recompiled AX microcode; its output matches Dolphin's sample for sample on the title music; Wii Remote speaker sound is played. |
 | **Game Flow** | **90%** | A full 17-round Board Game Island game; every Free Play minigame played by hand, all 79 without faults. |
 | **Input System** | **80%** | Emulated Wii Remote over emulated Bluetooth; keyboard, mouse, up to four gamepads and real Wii Remotes; an optional window on the minigame explanation screens lists the PC key of each button. |
-| **PC Features** | **80%** | Single-file launcher, Mii file loading, in-game options menu (F10), key bindings, controls window, save backups, custom textures; ultrawide and online are still planned. |
+| **PC Features** | **80%** | Single-file launcher, Mii batch import/export with duplicate checks, in-game options menu (F10), key bindings, save backup/restore/delete, texture-pack folder/ZIP import with metadata and conflict warnings, custom window sizes, VSync, linear/nearest scaling, optional lightweight post-process anti-aliasing, color/contrast enhancement, live FPS/frame-time overlay, searchable screenshots, and input replays. True ultrawide camera expansion and online play remain planned. |
 
 ### Known Limitations
 
@@ -96,6 +96,8 @@ Every key can be changed on the launcher's **Controls** page or in `games/wiipar
 
 | PC key | Action |
 | :--- | :--- |
+| F6 | Start/stop input replay recording; saves `games/wiiparty/replays/last.wpr` |
+| F7 | Play the most recently recorded replay |
 | F9 | Screenshot to the `screenshots` folder |
 | F10 | Options menu over the game |
 | F11 | Full screen |
@@ -115,10 +117,10 @@ The project's scope is the original game, faithful and optimized.
 
 | Feature | Notes |
 | :--- | :--- |
-| **Ultrawide support** | Wider-than-16:9 windows without stretching the picture. Not started. |
+| **True ultrawide rendering** | Correct wider camera framing and gameplay projection, rather than stretching the 16:9 image. Still planned; the new resolution presets change window size only. |
 | **Online play with friends** | A fourth, green **Online** button next to the three buttons at the bottom of the main menu. There is no server: players connect directly, and the game exchanges only each player's inputs in lockstep. Not started. |
 
-The launcher has a Miis page that links an online Mii editor and loads the Wii Mii files made with it (.mii files or a Wii Mii database) into the console Miis the game lists, up to 100. A Mii editor of its own is not planned.
+The launcher has a Miis page that imports individual or batch Wii Mii files and whole Wii Mii databases (up to 100 Miis). Database updates retain an `.bak` copy of the previous database. The texture page imports PNG texture-pack folders, toggles packs on/off, and opens the active folder. The launcher does not bundle third-party or game-derived texture assets; add your own legally obtained packs. A Mii editor of its own is not planned.
 
 ### Platforms
 
