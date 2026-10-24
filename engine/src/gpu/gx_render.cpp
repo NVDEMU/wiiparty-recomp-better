@@ -1,4 +1,5 @@
 #include "wp/gx_render.h"
+#include "wp/performance_overlay.h"
 #include "wp/log.h"
 
 #include "gx_render_common.h"
@@ -54,8 +55,36 @@ Output vertex_main(uint id : SV_VertexID) {
     return output;
 }
 
+cbuffer PresentSettings : register(b1) {
+    float enhancement;
+    float antialiasing;
+    float2 padding;
+};
+
+float luminance(float3 color) { return dot(color, float3(0.299, 0.587, 0.114)); }
+
 float4 pixel_main(Output input) : SV_Target {
-    return float4(frame.Sample(frame_sampler, input.uv).rgb, 1);
+    float3 source = frame.Sample(frame_sampler, input.uv).rgb;
+    if (antialiasing > 0.5) {
+        uint width, height;
+        frame.GetDimensions(width, height);
+        float2 texel = 1.0 / float2(width, height);
+        float3 north = frame.Sample(frame_sampler, input.uv + float2(0.0, -texel.y)).rgb;
+        float3 south = frame.Sample(frame_sampler, input.uv + float2(0.0, texel.y)).rgb;
+        float3 west = frame.Sample(frame_sampler, input.uv + float2(-texel.x, 0.0)).rgb;
+        float3 east = frame.Sample(frame_sampler, input.uv + float2(texel.x, 0.0)).rgb;
+        float center_luma = luminance(source);
+        float low_luma = min(center_luma, min(min(luminance(north), luminance(south)), min(luminance(west), luminance(east))));
+        float high_luma = max(center_luma, max(max(luminance(north), luminance(south)), max(luminance(west), luminance(east))));
+        if (high_luma - low_luma > max(0.0312, high_luma * 0.125))
+            source = lerp(source, (north + south + east + west) * 0.25, 0.35);
+    }
+    if (enhancement > 0.5) {
+        source = (source - 0.5) * 1.06 + 0.5;
+        float avg_luma = luminance(source);
+        source = lerp(avg_luma.xxx, source, 1.04);
+    }
+    return float4(saturate(source), 1);
 }
 )HLSL";
 
@@ -693,6 +722,8 @@ struct Device {
     ID3D11VertexShader* present_vertex = nullptr;
     ID3D11PixelShader* present_pixel = nullptr;
     ID3D11SamplerState* present_sampler = nullptr;
+    ID3D11SamplerState* present_point_sampler = nullptr;
+    ID3D11Buffer* present_constants = nullptr;
     ID3D11PixelShader* copy_pixel = nullptr;
     ID3D11Buffer* copy_constants = nullptr;
     ID3D11PixelShader* clear_pixel = nullptr;
@@ -704,6 +735,10 @@ struct Device {
     ID3D11BlendState* overlay_blend = nullptr;
     ID3D11Texture2D* overlay = nullptr;
     ID3D11ShaderResourceView* overlay_view = nullptr;
+    ID3D11Texture2D* performance_texture = nullptr;
+    ID3D11ShaderResourceView* performance_view = nullptr;
+    uint32_t performance_width = 0;
+    uint32_t performance_height = 0;
     uint32_t overlay_width = 0;
     uint32_t overlay_height = 0;
     uint64_t overlay_version = 0;
@@ -1687,7 +1722,8 @@ void copy_to_framebuffer(int x, int y, int width, int height, bool depth, const 
 }
 
 bool create_present_pipeline() {
-    if (g_device.present_vertex && g_device.copy_pixel && g_device.present_sampler) {
+    if (g_device.present_vertex && g_device.present_pixel && g_device.present_sampler &&
+        g_device.present_point_sampler && g_device.present_constants) {
         return true;
     }
     ID3DBlob* vertex_code = nullptr;
@@ -1736,8 +1772,16 @@ bool create_present_pipeline() {
     raster.FillMode = D3D11_FILL_SOLID;
     raster.CullMode = D3D11_CULL_NONE;
     raster.DepthClipEnable = FALSE;
-    return SUCCEEDED(g_device.device->CreateSamplerState(&sampler, &g_device.present_sampler)) &&
-           SUCCEEDED(g_device.device->CreateRasterizerState(&raster, &g_device.present_rasterizer));
+    if (FAILED(g_device.device->CreateSamplerState(&sampler, &g_device.present_sampler))) return false;
+    D3D11_SAMPLER_DESC point = sampler;
+    point.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    if (FAILED(g_device.device->CreateSamplerState(&point, &g_device.present_point_sampler))) return false;
+    D3D11_BUFFER_DESC settings_desc{};
+    settings_desc.ByteWidth = 16;
+    settings_desc.Usage = D3D11_USAGE_DEFAULT;
+    settings_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    if (FAILED(g_device.device->CreateBuffer(&settings_desc, nullptr, &g_device.present_constants))) return false;
+    return SUCCEEDED(g_device.device->CreateRasterizerState(&raster, &g_device.present_rasterizer));
 }
 
 bool ensure_swapchain(HWND window, UINT width, UINT height) {
@@ -1890,6 +1934,61 @@ void upload_overlay(const options::Image& image) {
     g_device.overlay_height = image.height;
 }
 
+void draw_performance_overlay(const RECT& client) {
+    using Clock = std::chrono::steady_clock;
+    static Clock::time_point previous_frame = Clock::now();
+    static Clock::time_point previous_update{};
+    static double fps = 0.0, frame_ms = 0.0;
+    Clock::time_point now = Clock::now();
+    double elapsed = std::chrono::duration<double>(now - previous_frame).count();
+    previous_frame = now;
+    if (elapsed > 0.0 && elapsed < 10.0) { frame_ms = elapsed * 1000.0; fps = 1.0 / elapsed; }
+    if (!settings::flag("video.performance_overlay", nullptr)) return;
+    if (previous_update.time_since_epoch().count() == 0 || now - previous_update >= std::chrono::milliseconds(200)) {
+        options::Image image = wp::performance_overlay::make(fps, frame_ms);
+        if (image.pixels.size() == static_cast<size_t>(image.width) * image.height) {
+            if (g_device.performance_texture && g_device.performance_width == image.width && g_device.performance_height == image.height) {
+                g_device.context->UpdateSubresource(g_device.performance_texture, 0, nullptr, image.pixels.data(), image.width * 4, 0);
+            } else {
+                release(g_device.performance_view);
+                release(g_device.performance_texture);
+                D3D11_TEXTURE2D_DESC description{};
+                description.Width = image.width;
+                description.Height = image.height;
+                description.MipLevels = 1;
+                description.ArraySize = 1;
+                description.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                description.SampleDesc.Count = 1;
+                description.Usage = D3D11_USAGE_DEFAULT;
+                description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                D3D11_SUBRESOURCE_DATA initial{image.pixels.data(), image.width * 4, 0};
+                if (SUCCEEDED(g_device.device->CreateTexture2D(&description, &initial, &g_device.performance_texture)) &&
+                    SUCCEEDED(g_device.device->CreateShaderResourceView(g_device.performance_texture, nullptr, &g_device.performance_view))) {
+                    g_device.performance_width = image.width;
+                    g_device.performance_height = image.height;
+                } else {
+                    release(g_device.performance_view);
+                    release(g_device.performance_texture);
+                }
+            }
+        }
+        previous_update = now;
+    }
+    if (!g_device.performance_view || !create_overlay_pipeline()) return;
+    ID3D11DeviceContext* context = g_device.context;
+    D3D11_VIEWPORT viewport{12.0f, 12.0f, static_cast<float>(g_device.performance_width),
+                            static_cast<float>(g_device.performance_height), 0.0f, 1.0f};
+    context->RSSetViewports(1, &viewport);
+    context->OMSetBlendState(g_device.overlay_blend, nullptr, 0xFFFFFFFF);
+    context->PSSetShader(g_device.overlay_pixel, nullptr, 0);
+    context->PSSetShaderResources(0, 1, &g_device.performance_view);
+    context->PSSetSamplers(0, 1, &g_device.present_sampler);
+    context->Draw(3, 0);
+    ID3D11ShaderResourceView* none = nullptr;
+    context->PSSetShaderResources(0, 1, &none);
+    context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+}
+
 void draw_overlay(const RECT& client) {
     options::Image image;
     if (options::take_overlay(g_device.overlay_version, image, g_device.overlay_visible) && !image.pixels.empty()) {
@@ -1947,13 +2046,24 @@ bool present_frame(void* window_handle, double aspect) {
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     context->VSSetShader(g_device.present_vertex, nullptr, 0);
     context->PSSetShader(g_device.present_pixel, nullptr, 0);
+    struct PresentConstants { float enhancement; float antialiasing; float padding[2]; };
+    PresentConstants present_values{
+        settings::flag("video.enhancements", nullptr) ? 1.0f : 0.0f,
+        settings::flag("video.antialiasing", nullptr) ? 1.0f : 0.0f,
+        {0.0f, 0.0f}
+    };
+    context->UpdateSubresource(g_device.present_constants, 0, nullptr, &present_values, 0, 0);
+    context->PSSetConstantBuffers(1, 1, &g_device.present_constants);
     context->PSSetShaderResources(0, 1, &g_device.frame_view);
-    context->PSSetSamplers(0, 1, &g_device.present_sampler);
+    ID3D11SamplerState* scaling_sampler = settings::text("video.filtering", nullptr) == "nearest"
+        ? g_device.present_point_sampler : g_device.present_sampler;
+    context->PSSetSamplers(0, 1, &scaling_sampler);
     context->Draw(3, 0);
     ID3D11ShaderResourceView* none = nullptr;
     context->PSSetShaderResources(0, 1, &none);
     draw_overlay(client);
-    HRESULT presented = g_device.swapchain->Present(0, 0);
+    draw_performance_overlay(client);
+    HRESULT presented = g_device.swapchain->Present(settings::flag("video.vsync", nullptr) ? 1u : 0u, 0);
     static bool logged_present_failure = false;
     if (FAILED(presented) && !logged_present_failure) {
         logged_present_failure = true;
