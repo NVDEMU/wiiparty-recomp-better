@@ -94,10 +94,17 @@ void main() {
 
 const char* kPresentFragment = R"GLSL(#version 410 core
 uniform sampler2D frame;
+uniform float enhancement;
 in vec2 uv;
 out vec4 color;
 void main() {
-    color = vec4(texture(frame, uv).rgb, 1.0);
+    vec3 source = texture(frame, uv).rgb;
+    if (enhancement > 0.5) {
+        source = (source - vec3(0.5)) * 1.06 + vec3(0.5);
+        float luminance = dot(source, vec3(0.2126, 0.7152, 0.0722));
+        source = mix(vec3(luminance), source, 1.04);
+    }
+    color = vec4(clamp(source, 0.0, 1.0), 1.0);
 }
 )GLSL";
 
@@ -667,6 +674,7 @@ struct PendingWriteBack {
 struct Program {
     GLuint id = 0;
     GLint flip = -1;
+    GLint enhancement = -1;
 };
 
 struct Device {
@@ -912,6 +920,7 @@ bool create_pipeline() {
         return false;
     }
     bind_samplers(g_device.present.id, {"frame"});
+    g_device.present.enhancement = gl.GetUniformLocation(g_device.present.id, "enhancement");
     bind_samplers(g_device.overlay.id, {"overlay"});
     bind_samplers(g_device.copy.id, {"color_source", "depth_source"});
     gl.UniformBlockBinding(g_device.copy.id, gl.GetUniformBlockIndex(g_device.copy.id, "CopyConstants"), 1);
@@ -1829,6 +1838,7 @@ bool present_frame(void* window_handle, double aspect) {
     gl.Viewport(static_cast<GLint>((client_width - width) / 2), static_cast<GLint>((area - height) / 2), static_cast<GLsizei>(width),
                 static_cast<GLsizei>(height));
     use_fullscreen(g_device.present, 1.0f);
+    gl.Uniform1f(g_device.present.enhancement, settings::flag("video.enhancements", nullptr) ? 1.0f : 0.0f);
     gl.ActiveTexture(GL_TEXTURE0);
     gl.BindTexture(GL_TEXTURE_2D, g_device.frame.texture);
     gl.BindSampler(0, g_device.linear_sampler);
