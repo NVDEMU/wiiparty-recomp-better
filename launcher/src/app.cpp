@@ -1169,20 +1169,18 @@ void App::repair_modal() {
 
 void App::create_save_backup() {
     namespace fs = std::filesystem;
-    fs::path titles = project_.nand_folder() / "title" / "00010000";
-    std::error_code error;
-    fs::path relative;
-    for (const auto& entry : fs::directory_iterator(titles, error)) {
-        if (error) break;
-        if (!entry.is_directory(error)) continue;
-        fs::path candidate = fs::path("title") / "00010000" / entry.path().filename() / "data";
-        if (fs::is_directory(project_.nand_folder() / candidate, error)) {
-            relative = candidate;
-            break;
-        }
-        error.clear();
+    const std::string id = project_.disc_id();
+    if (id.size() < 4) {
+        saves_message_ = "Could not identify the installed game's title ID, so no backup was made.";
+        return;
     }
-    if (relative.empty()) {
+    const uint32_t title_low = (static_cast<uint32_t>(static_cast<unsigned char>(id[0])) << 24) |
+                               (static_cast<uint32_t>(static_cast<unsigned char>(id[1])) << 16) |
+                               (static_cast<uint32_t>(static_cast<unsigned char>(id[2])) << 8) |
+                               static_cast<uint32_t>(static_cast<unsigned char>(id[3]));
+    const fs::path relative = wp::saves::save_relative(title_low);
+    std::error_code error;
+    if (!fs::is_directory(project_.nand_folder() / relative, error)) {
         saves_message_ = "No Wii Party save data was found yet. Launch the game and save once, then try again.";
         return;
     }
