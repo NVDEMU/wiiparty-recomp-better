@@ -159,6 +159,9 @@ private:
     std::string picked_folder_;
     std::string picked_added_disc_;
     std::string picked_mii_;
+    std::string picked_texture_pack_;
+    std::string texture_message_;
+    bool texture_message_failed_ = false;
     std::string miis_message_;
     bool miis_message_failed_ = false;
     std::string add_disc_;
