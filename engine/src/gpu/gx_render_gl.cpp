@@ -7,6 +7,14 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 
+// OpenGL 4.5 clip control is optional and is not declared by macOS's GL 4.1 headers.
+#ifndef GL_LOWER_LEFT
+#define GL_LOWER_LEFT 0x8CA1
+#endif
+#ifndef GL_ZERO_TO_ONE
+#define GL_ZERO_TO_ONE 0x935F
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -48,11 +56,13 @@ namespace {
     X(Uniform1f) X(Uniform4f) X(UniformBlockBinding) X(UseProgram) X(VertexAttribPointer) X(Viewport) X(MapBufferRange) X(UnmapBuffer)    \
     X(FenceSync) X(ClientWaitSync) X(DeleteSync)
 
+using GLClipControlProc = void (*)(GLenum origin, GLenum depth);
+
 struct Gl {
 #define WP_GL_MEMBER(name) decltype(&::gl##name) name = nullptr;
     WP_GL_FUNCTIONS(WP_GL_MEMBER)
 #undef WP_GL_MEMBER
-    decltype(&::glClipControl) ClipControl = nullptr;
+    GLClipControlProc ClipControl = nullptr;
 };
 
 Gl gl;

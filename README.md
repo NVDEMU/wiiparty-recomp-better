@@ -7,13 +7,13 @@ Static recompilation of Wii Party for native PC.
 
 ![Project progress](docs/progress.svg)
 
-**[Download the latest build](https://github.com/arelkair/wiiparty-recomp/releases)** · Windows 10 and 11 (64-bit) · Linux x86_64 (experimental)
+**[Download all platforms (Nightly releases)](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly)** · Windows x64 · Linux x86_64 · macOS Apple Silicon and Intel
 
 ## Overview
 
 Wii Party Recomp translates the game's PowerPC code into C++ and compiles it into a native Windows or Linux program. The game and Nintendo SDK code run translated; only what depends on the console hardware is replaced, and the hardware itself (GPU, DSP audio, Bluetooth, IOS, disc and NAND) is reimplemented underneath. The game's own audio microcode is recompiled too.
 
-No game files are distributed. The launcher builds the game on your PC from your own copy of the disc.
+No game files are distributed. The launcher builds the game on your computer from your own copy of the disc. Windows, Linux and macOS launchers are built by GitHub Actions; native runtime/gameplay still needs testing on real machines.
 
 ## Current State & Metrics
 
@@ -40,13 +40,13 @@ Tracked in `games/wiiparty/analysis/progress.csv`:
 
 ## Installing
 
-1. Download `wiipartyrecomp-launcher.exe` from the [releases page](https://github.com/arelkair/wiiparty-recomp/releases) (the newest one is at the top). It is the only file you need.
+1. Download `wiipartyrecomp-launcher.exe` from the [Nightly release](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly). The optional `wiipartyrecomp-windows-x86_64.zip` contains the same launcher.
 2. Open it, check the install folder, choose your own copy of Wii Party (`.iso`, `.wbfs`, `.rvz`, `.ciso`, `.wia` or `.gcm`) and press **Install**.
 3. When it finishes, press **Play**.
 
 The launcher downloads any missing build tools from their official sites and checks each one against its published SHA-256. Nothing from the game is downloaded and nothing leaves your computer.
 
-**Without internet (Windows):** download `wiipartyrecomp-offline-windows.zip` from the same release instead, unzip it and open the launcher inside. It carries every build tool (about 185 MB), so the install never connects. Turn on **Offline mode** in Settings and the launcher also stops checking for updates. The source code of the GPL tools in that pack is published next to it as `wiipartyrecomp-sources.zip`.
+**Internet requirement:** this fork currently publishes the online launcher only. On first install, it downloads build tools from their official sources and verifies their SHA-256; the optional offline Windows tool bundle is not included yet.
 
 | Requirement | |
 | :--- | :--- |
@@ -61,12 +61,22 @@ The launcher downloads any missing build tools from their official sites and che
    - Debian and Ubuntu: `sudo apt install g++ cmake ninja-build python3 curl libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libgl-dev libpulse-dev libasound2-dev libudev-dev libdbus-1-dev`
    - Fedora: `sudo dnf install gcc-c++ cmake ninja-build python3 curl libX11-devel libXext-devel libXrandr-devel libXcursor-devel libXi-devel libXScrnSaver-devel libXtst-devel libxkbcommon-devel wayland-devel wayland-protocols-devel libdecor-devel mesa-libEGL-devel mesa-libGL-devel pulseaudio-libs-devel alsa-lib-devel systemd-devel dbus-devel`
    - Arch: `sudo pacman -S --needed gcc cmake ninja python curl sdl3`
-2. Download `wiipartyrecomp-launcher-x86_64.AppImage`, make it executable (`chmod +x wiipartyrecomp-launcher-x86_64.AppImage`, or Properties > Permissions in your file manager) and open it.
+2. Download `wiipartyrecomp-launcher-x86_64.AppImage` from the [Nightly release](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly), make it executable (`chmod +x wiipartyrecomp-launcher-x86_64.AppImage`, or Properties > Permissions in your file manager) and open it.
 3. Choose your disc and press **Install**, then **Play**. The launcher downloads only nodtool; the game is installed in `~/.local/share/WiiPartyRecomp`.
 
-The launcher needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) and the game needs OpenGL 4.1. The Linux version has been tested on Ubuntu 24.04 only (under WSL); reports from other distributions, desktops and graphics cards are very welcome.
+The AppImage targets x86_64 and needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later); the game needs OpenGL 4.1. CI builds the package, but real-machine gameplay on Linux still needs tester validation.
 
 The build runs once, at low priority, with as many parallel jobs as your memory allows. Updating to a newer launcher rebuilds the game and keeps your saves and settings.
+
+### macOS (experimental)
+
+1. Install Apple's Command Line Tools if they are not already installed. In Terminal, run `xcode-select --install`; the game needs Apple's C++ compiler. Python, CMake, Ninja and the disc extraction tool are downloaded by the launcher.
+2. Download **[WiiPartyRecomp-macos-arm64.dmg](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly)** on Apple Silicon, or **WiiPartyRecomp-macos-x86_64.dmg** on an Intel Mac, from the Nightly release.
+3. Open the DMG and drag **Wii Party Recomp.app** to Applications.
+4. Open the launcher, choose your own Wii Party disc image, and press **Install**. The launcher compiles the game locally.
+5. The app is ad-hoc signed but not Developer ID signed or notarized, so Gatekeeper may still warn. If macOS blocks the app, Control-click it in Finder and choose **Open**, then confirm the prompt.
+
+The DMG contains the launcher, not the game. You must provide your own legally obtained Wii Party disc image. The macOS CI build and DMG packaging pass on Apple Silicon and Intel. A full game playthrough on physical Macs still needs testing.
 
 ## Controls
 
@@ -112,9 +122,9 @@ The launcher has a Miis page that links an online Mii editor and loads the Wii M
 
 ### Platforms
 
-- **Windows 10 and 11:** supported.
-- **Linux:** experimental. The launcher is an AppImage and the game plays with an OpenGL renderer, keyboard, mouse, audio, the F10 menu and custom texture packs (tested on Ubuntu 24.04; gamepad support is built in but not yet tested there). **Help wanted:** Linux testers with different GPUs and desktops, please open an issue or a discussion.
-- **macOS:** planned after Linux. **Help wanted:** if you have a Mac and would like to test builds in the future, please open an issue or a discussion.
+- **Windows 10 and 11 x64:** launcher EXE and ZIP are built by CI; game/runtime should be tested on Windows hardware.
+- **Linux x86_64:** AppImage is built by CI; requires glibc 2.38+ and OpenGL 4.1. Full gameplay still needs testing across distributions and GPUs.
+- **macOS:** Apple Silicon and Intel DMGs pass CI and are ad-hoc signed, but not notarized. Full gameplay and controller behavior need testing on physical Macs.
 
 ## Repository Layout
 

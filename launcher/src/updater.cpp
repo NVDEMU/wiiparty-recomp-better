@@ -15,6 +15,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <winhttp.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#include <sys/stat.h>
 #else
 #include <sys/stat.h>
 #endif
@@ -479,6 +482,17 @@ std::filesystem::path launcher_path() {
     wchar_t buffer[MAX_PATH * 4];
     DWORD size = GetModuleFileNameW(nullptr, buffer, static_cast<DWORD>(std::size(buffer)));
     return std::filesystem::path(std::wstring(buffer, size));
+#elif defined(__APPLE__)
+    uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size);
+    std::vector<char> buffer(static_cast<size_t>(size) + 1, '\\0');
+    if (_NSGetExecutablePath(buffer.data(), &size) != 0) {
+        return {};
+    }
+    std::error_code error;
+    std::filesystem::path path(buffer.data());
+    std::filesystem::path resolved = std::filesystem::canonical(path, error);
+    return error ? path : resolved;
 #else
     std::string image = environment_value("APPIMAGE");
     if (!image.empty()) {

@@ -1,3 +1,8 @@
+// macOS hides the legacy ucontext APIs unless X/Open interfaces are enabled.
+#if defined(__APPLE__) && !defined(_XOPEN_SOURCE)
+#define _XOPEN_SOURCE 700
+#endif
+
 #include "wp/fiber.h"
 
 #ifdef _WIN32
