@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: macos-${{ github.head_ref || github.ref_name }}
@@ -76,6 +76,8 @@ jobs:
 
   nightly:
     name: Publish macOS Nightly
+    permissions:
+      contents: write
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
