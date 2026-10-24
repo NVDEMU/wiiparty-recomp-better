@@ -165,6 +165,20 @@ void apply_interface_language() {
     ui::set_language(settings::text("system.interface_language", "WP_INTERFACE_LANGUAGE"));
 }
 
+void requested_window_size(int& width, int& height) {
+    std::string preset = settings::text("video.resolution", nullptr);
+    width = kWindowWidth;
+    height = static_cast<int>(width / g_aspect + 0.5);
+    if (preset.empty() || preset == "auto") return;
+    int requested_width = 0;
+    int requested_height = 0;
+    if (std::sscanf(preset.c_str(), "%dx%d", &requested_width, &requested_height) == 2 &&
+        requested_width >= 640 && requested_width <= 7680 && requested_height >= 480 && requested_height <= 4320) {
+        width = requested_width;
+        height = requested_height;
+    }
+}
+
 void set_fullscreen(SDL_Window* window, bool enable) {
     SDL_SetWindowFullscreen(window, enable);
     g_fullscreen = enable;
@@ -177,6 +191,11 @@ void note_press(int code) {
 }
 
 void apply_option(SDL_Window* window, const std::string& key) {
+    if (key == "video.resolution") {
+        int width = 0, height = 0;
+        requested_window_size(width, height);
+        SDL_SetWindowSize(window, width, height + titlebar::height(window));
+    }
     if (key == "system.interface_language") {
         apply_interface_language();
         options::refresh_menu(window);
@@ -230,6 +249,14 @@ void handle_event(SDL_Window* window, const SDL_Event& event) {
         bool repeat = event.key.repeat;
         if (vk == kF12 && !repeat) {
             gx::request_capture();
+            return;
+        }
+        if (vk == 0x75 && !repeat) {
+            input::toggle_replay_recording();
+            return;
+        }
+        if (vk == 0x76 && !repeat) {
+            input::start_replay_playback();
             return;
         }
         if (vk == kF11 && !repeat) {
@@ -332,6 +359,7 @@ void window_thread(bool visible) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
     int client_width = kWindowWidth;
     int client_height = static_cast<int>(client_width / g_aspect + 0.5);
+    requested_window_size(client_width, client_height);
     SDL_Rect usable{};
     SDL_DisplayID display = SDL_GetPrimaryDisplay();
     if (display && SDL_GetDisplayUsableBounds(display, &usable)) {
