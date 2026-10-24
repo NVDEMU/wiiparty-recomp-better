@@ -458,7 +458,7 @@ bool App::consume(const SDL_Event& event) {
     }
     if (event.type == SDL_EVENT_DROP_FILE && page_ == Page::Miis && event.drop.data) {
         std::lock_guard<std::mutex> lock(picked_mutex_);
-        picked_mii_ = event.drop.data;
+        picked_miis_.push_back(event.drop.data);
         ui::request_frames(2);
         return true;
     }
