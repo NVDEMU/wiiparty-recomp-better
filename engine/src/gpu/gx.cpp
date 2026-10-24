@@ -4,6 +4,7 @@
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <mach/mach.h>
+#include <pthread.h>
 #else
 #include <pthread.h>
 #include <time.h>
@@ -744,12 +745,12 @@ double thread_seconds(ThreadClock thread) {
     return static_cast<double>(ticks(kernel) + ticks(user)) * 1e-7;
 }
 #elif defined(__APPLE__)
-using ThreadClock = thread_port_t;
+using ThreadClock = mach_port_t;
 
 ThreadClock current_thread_clock() {
-    // macOS does not expose pthread_getcpuclockid. Keep a Mach thread port so
-    // we can query the CPU time of the specific game/GPU thread later.
-    return mach_thread_self();
+    // macOS does not expose pthread_getcpuclockid. Convert the pthread handle
+    // into a Mach thread port so the specific game/GPU thread can be queried later.
+    return pthread_mach_thread_np(pthread_self());
 }
 
 double thread_seconds(ThreadClock thread) {
