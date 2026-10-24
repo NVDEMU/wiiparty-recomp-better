@@ -69,6 +69,9 @@ std::vector<std::string> choices(const std::string& key) {
     if (key == "video.resolution") {
         return {"auto", "1280x720", "1600x900", "1920x1080", "2560x1440", "3440x1440"};
     }
+    if (key == "video.filtering") {
+        return {"linear", "nearest"};
+    }
     if (key == "system.interface_language") {
         return {"en", "es", "gl"};
     }
