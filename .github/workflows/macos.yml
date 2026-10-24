@@ -36,6 +36,7 @@ jobs:
         run: >-
           cmake -S . -B build/engine -G Ninja
           -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           -DWP_FETCH_SDL3=ON
           -DWP_REQUIRE_SDL3=ON
 
@@ -43,10 +44,15 @@ jobs:
         run: cmake --build build/engine --target wp_engine --parallel 2
 
       - name: Configure launcher
-        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Compile launcher app
         run: cmake --build build/launcher --target launcher --parallel 2
+
+      - name: Ad-hoc sign the launcher app
+        run: |
+          codesign --force --deep --sign - "build/launcher/Wii Party Recomp.app"
+          codesign --verify --deep --strict --verbose=2 "build/launcher/Wii Party Recomp.app"
 
       - name: Verify app bundle
         run: |
@@ -114,7 +120,7 @@ jobs:
             **Apple Silicon:** `WiiPartyRecomp-macos-arm64.dmg`
             **Intel:** `WiiPartyRecomp-macos-x86_64.dmg`
 
-            These builds are experimental and have not yet been verified through a full game playthrough on physical Macs. Bring your own legally obtained Wii Party disc image; game data is not included.
+            These builds are experimental and have not yet been verified through a full game playthrough on physical Macs. Apps are ad-hoc signed, not Developer ID signed or notarized, so Gatekeeper may still warn. Bring your own legally obtained Wii Party disc image; game data is not included.
           files: |
             dist/WiiPartyRecomp-macos-arm64.dmg
             dist/WiiPartyRecomp-macos-x86_64.dmg

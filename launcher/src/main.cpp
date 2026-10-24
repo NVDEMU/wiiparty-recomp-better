@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
             screenshot_prefix = argv[++i];
         }
     }
-    SDL_SetAppMetadata("Wii Party Recomp", WP_LAUNCHER_VERSION, "io.github.arelkair.wiipartyrecomp");
+    SDL_SetAppMetadata("Wii Party Recomp", WP_LAUNCHER_VERSION, "io.github.nvdemu.wiipartyrecomp");
     SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "1");
     SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "1");
     if (!SDL_Init(SDL_INIT_VIDEO)) {

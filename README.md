@@ -74,7 +74,7 @@ The build runs once, at low priority, with as many parallel jobs as your memory 
 2. Download **[WiiPartyRecomp-macos-arm64.dmg](https://github.com/NVDEMU/wiiparty-recomp-better/releases/tag/Nightly)** on Apple Silicon, or **WiiPartyRecomp-macos-x86_64.dmg** on an Intel Mac, from the Nightly release.
 3. Open the DMG and drag **Wii Party Recomp.app** to Applications.
 4. Open the launcher, choose your own Wii Party disc image, and press **Install**. The launcher compiles the game locally.
-5. The first experimental builds are unsigned / not notarized. If macOS blocks the app, Control-click it in Finder and choose **Open**, then confirm the prompt.
+5. The app is ad-hoc signed but not Developer ID signed or notarized, so Gatekeeper may still warn. If macOS blocks the app, Control-click it in Finder and choose **Open**, then confirm the prompt.
 
 The DMG contains the launcher, not the game. You must provide your own legally obtained Wii Party disc image. The initial build must pass CI and then be tested through a full game playthrough on physical Macs.
 
