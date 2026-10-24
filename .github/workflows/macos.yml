@@ -2,13 +2,17 @@ name: macOS
 
 on:
   push:
-    branches: [main, macos-support]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: macos-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
