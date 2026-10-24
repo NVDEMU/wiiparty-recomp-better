@@ -78,7 +78,11 @@ add_executable(launcher WIN32
 
 include(cmake/embed.cmake)
 
-set_target_properties(launcher PROPERTIES OUTPUT_NAME wiipartyrecomp-launcher)
+if(APPLE)
+    set_target_properties(launcher PROPERTIES OUTPUT_NAME "Wii Party Recomp")
+else()
+    set_target_properties(launcher PROPERTIES OUTPUT_NAME wiipartyrecomp-launcher)
+endif()
 target_include_directories(launcher PRIVATE ${WP_ENGINE}/include src)
 target_include_directories(launcher SYSTEM PRIVATE ${WP_ENGINE}/../third_party/stb)
 target_compile_definitions(launcher PRIVATE WP_LAUNCHER_VERSION="${WP_LAUNCHER_VERSION}" WP_LAUNCHER_BUILD="${WP_LAUNCHER_BUILD}")
@@ -89,6 +93,16 @@ if(WIN32)
     target_sources(launcher PRIVATE res/launcher.rc)
     target_link_libraries(launcher PRIVATE dwmapi winhttp ole32 uuid shell32 bthprops dxgi)
     target_link_options(launcher PRIVATE -static $<$<CONFIG:Release>:-s>)
-else()
+elseif(APPLE)
+    # A real .app bundle is required for normal Finder launches and DMG distribution.
+    # Keep the native system runtimes dynamic; Apple's linker does not support Linux's
+    # -static-libstdc++/-static-libgcc flags.
+    set_target_properties(launcher PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.arelkair.wiipartyrecomp"
+        MACOSX_BUNDLE_BUNDLE_NAME "Wii Party Recomp"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${WP_LAUNCHER_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${WP_LAUNCHER_BUILD}")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_options(launcher PRIVATE -static-libstdc++ -static-libgcc $<$<CONFIG:Release>:-s>)
 endif()
