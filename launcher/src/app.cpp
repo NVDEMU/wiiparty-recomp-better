@@ -1012,6 +1012,34 @@ void App::settings_page(float width) {
                 });
             }
             ImGui::PopID();
+            if (key == "video.resolution") {
+                ui::gap(8);
+                ui::text("Custom window size (for example 2048x1152)", Font::Regular, ui::size::kDetail, p.secondary, width);
+                ui::gap(6);
+                ImGui::SetNextItemWidth(px(190));
+                ImGui::InputText("Width x height", custom_resolution_, sizeof(custom_resolution_));
+                ImGui::SameLine();
+                if (ui::button("Apply custom size", Kind::Secondary, 150.0f)) {
+                    int custom_width = 0, custom_height = 0;
+                    char trailing = 0;
+                    int parsed = std::sscanf(custom_resolution_, "%dx%d%c", &custom_width, &custom_height, &trailing);
+                    if (parsed == 2 && custom_width >= 640 && custom_width <= 7680 &&
+                        custom_height >= 480 && custom_height <= 4320) {
+                        store("video.resolution", std::to_string(custom_width) + "x" + std::to_string(custom_height));
+                        resolution_message_failed_ = false;
+                        resolution_message_ = "Window size saved. The game image keeps its original aspect ratio.";
+                    } else {
+                        resolution_message_failed_ = true;
+                        resolution_message_ = "Enter dimensions from 640x480 to 7680x4320, such as 2048x1152.";
+                    }
+                }
+                if (!resolution_message_.empty()) {
+                    ui::gap(6);
+                    ui::text(resolution_message_.c_str(), Font::Regular, ui::size::kDetail,
+                             resolution_message_failed_ ? p.danger : p.secondary, width);
+                }
+                ui::gap(8);
+            }
         }
         card.end();
         ui::gap(28);
@@ -1740,7 +1768,7 @@ void App::textures_page(float width) {
                 for (fs::recursive_directory_iterator it(source, error), end; !error && it != end; it.increment(error)) {
                     if (!it->is_regular_file(error) || it->path().extension() != ".png") continue;
                     fs::path relative = fs::relative(it->path(), source, error);
-                    if (error || relative.empty() || relative.native().find("..") == 0) { error.clear(); continue; }
+                    if (error || relative.empty() || relative.generic_string().find("..") == 0) { error.clear(); continue; }
                     fs::path destination = base / relative;
                     fs::create_directories(destination.parent_path(), error);
                     if (!error) {
