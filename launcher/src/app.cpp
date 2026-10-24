@@ -1706,19 +1706,90 @@ void App::create_report() {
 void App::textures_page(float width) {
     const ui::Palette& p = ui::palette();
     const Texts& t = texts();
-    std::filesystem::path load = project_.game_folder() / "textures" / "load";
-    std::filesystem::path off = project_.game_folder() / "textures" / "disabled";
+    namespace fs = std::filesystem;
+    fs::path load = project_.game_folder() / "textures" / "load";
+    fs::path off = project_.game_folder() / "textures" / "disabled";
+
+    std::string picked;
+    {
+        std::lock_guard<std::mutex> lock(picked_mutex_);
+        picked.swap(picked_texture_pack_);
+    }
+    if (!picked.empty()) {
+        std::error_code error;
+        fs::path source = path_from(picked);
+        fs::path pack_name = source.filename();
+        if (fs::is_directory(source, error)) {
+            if (fs::is_directory(source / "load", error)) source /= "load";
+            bool has_png = false;
+            for (fs::recursive_directory_iterator it(source, error), end; !error && it != end; it.increment(error)) {
+                if (it->is_regular_file(error) && it->path().extension() == ".png") { has_png = true; break; }
+            }
+            if (has_png) {
+                error.clear();
+                fs::create_directories(load, error);
+                fs::create_directories(off, error);
+                fs::path base = load / pack_name;
+                if (pack_name.empty() || pack_name == "." || pack_name == "..") base = load / "Imported Pack";
+                for (int suffix = 2; fs::exists(base, error) && !error; suffix++) {
+                    base = load / (pack_name.string() + " (" + std::to_string(suffix) + ")");
+                }
+                error.clear();
+                fs::create_directories(base, error);
+                size_t copied = 0;
+                for (fs::recursive_directory_iterator it(source, error), end; !error && it != end; it.increment(error)) {
+                    if (!it->is_regular_file(error) || it->path().extension() != ".png") continue;
+                    fs::path relative = fs::relative(it->path(), source, error);
+                    if (error || relative.empty() || relative.native().find("..") == 0) { error.clear(); continue; }
+                    fs::path destination = base / relative;
+                    fs::create_directories(destination.parent_path(), error);
+                    if (!error) {
+                        fs::copy_file(it->path(), destination, fs::copy_options::none, error);
+                        if (!error) copied++;
+                    }
+                    error.clear();
+                }
+                texture_message_failed_ = copied == 0;
+                texture_message_ = copied == 0 ? "No PNG textures could be imported." :
+                    "Imported texture pack: " + base.filename().string() + " (" + std::to_string(copied) + " PNGs).";
+                packs_dirty_ = true;
+            } else {
+                texture_message_failed_ = true;
+                texture_message_ = "That folder has no PNG textures. Choose a texture pack folder or drag one here.";
+            }
+        } else {
+            texture_message_failed_ = true;
+            texture_message_ = "Choose or drop a texture-pack folder (not a ZIP file).";
+        }
+    }
     ImVec2 top = ImGui::GetCursorScreenPos();
-    heading(t.page_textures, t.textures_intro, width - px(150));
+    heading(t.page_textures, t.textures_intro, width - px(225));
     ImVec2 after = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(140), top.y));
-    if (ui::button(t.open_folder, Kind::Secondary, 140.0f)) {
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(218), top.y));
+    if (ui::button("Import folder", Kind::Primary, 104.0f)) {
+        SDL_ShowOpenFolderDialog(
+            [](void* self, const char* const* folders, int) {
+                if (folders && folders[0]) {
+                    App* app = static_cast<App*>(self);
+                    std::lock_guard<std::mutex> lock(app->picked_mutex_);
+                    app->picked_texture_pack_ = folders[0];
+                }
+                wake_main_loop();
+            }, this, window_, nullptr, false);
+    }
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(106), top.y));
+    if (ui::button(t.open_folder, Kind::Secondary, 104.0f)) {
         std::error_code error;
         std::filesystem::create_directories(load, error);
         SDL_OpenURL(folder_url(load).c_str());
         packs_dirty_ = true;
     }
     ImGui::SetCursorScreenPos(after);
+    if (!texture_message_.empty()) {
+        ui::text(texture_message_.c_str(), Font::Regular, ui::size::kDetail,
+                 texture_message_failed_ ? p.danger : p.secondary, width);
+        ui::gap(12);
+    }
     if (packs_dirty_) {
         packs_dirty_ = false;
         packs_.clear();
