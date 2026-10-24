@@ -1,5 +1,6 @@
 #include "wp/input.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -11,6 +12,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "wp/game.h"
