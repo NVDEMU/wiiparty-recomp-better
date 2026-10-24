@@ -21,9 +21,18 @@
 
 struct TexturePack {
     std::string name;
-    bool enabled = false;
+    std::string folder_name;
+    std::string version;
+    std::string author;
+    std::string description;
+    std::filesystem::path folder;
+    std::filesystem::path preview;
+    std::vector<std::string> texture_names;
+    SDL_Texture* thumbnail = nullptr;
     size_t files = 0;
+    size_t conflicts = 0;
     uintmax_t bytes = 0;
+    bool enabled = false;
 };
 
 struct DolphinFind {
@@ -79,6 +88,8 @@ private:
     void miis_page(float width);
     void save_miis();
     void choose_mii_file();
+    void choose_mii_export();
+    void create_save_backup();
     void versions_section(float width);
     void gamepads_section(float width);
     void wiimotes_section(float width);
@@ -149,6 +160,7 @@ private:
     std::vector<std::string> backup_sizes_;
     std::string saves_message_;
     int restore_index_ = -1;
+    bool delete_backup_action_ = false;
     int license_ = 0;
     int capturing_ = -1;
     bool capture_reserved_ = false;
@@ -158,7 +170,8 @@ private:
     std::string picked_disc_;
     std::string picked_folder_;
     std::string picked_added_disc_;
-    std::string picked_mii_;
+    std::vector<std::string> picked_miis_;
+    std::string picked_mii_export_;
     std::string picked_texture_pack_;
     char custom_resolution_[32] = "1920x1080";
     std::string resolution_message_;
@@ -170,6 +183,7 @@ private:
     std::string add_disc_;
     std::vector<TexturePack> packs_;
     bool packs_dirty_ = true;
+    int texture_details_index_ = -1;
     wp::mii::Database mii_database_;
     bool miis_dirty_ = true;
     bool miis_save_failed_ = false;
@@ -193,6 +207,8 @@ private:
     std::vector<Capture> captures_;
     size_t captures_total_ = 0;
     bool captures_listed_ = false;
+    char capture_search_[128] = {};
+    int capture_sort_ = 0;
     bool capture_view_open_ = false;
     bool captures_selected_mode_ = false;
     std::vector<std::filesystem::path> capture_targets_;

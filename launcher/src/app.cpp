@@ -16,6 +16,7 @@
 #include "prefs.h"
 #include "sha256.h"
 #include "shortcut.h"
+#include "texture_archive.h"
 #include "wp/screenshot.h"
 #include "subprocess.h"
 #include "texts.h"
@@ -237,6 +238,10 @@ App::App(SDL_Window* window, Project project, bool install_mode)
 }
 
 App::~App() {
+    for (TexturePack& pack : packs_) {
+        if (pack.thumbnail) SDL_DestroyTexture(pack.thumbnail);
+        pack.thumbnail = nullptr;
+    }
     if (download_thread_.joinable()) {
         download_thread_.join();
     }
@@ -1162,6 +1167,37 @@ void App::repair_modal() {
     ImGui::PopStyleVar(3);
 }
 
+void App::create_save_backup() {
+    namespace fs = std::filesystem;
+    fs::path titles = project_.nand_folder() / "title" / "00010000";
+    std::error_code error;
+    fs::path relative;
+    for (const auto& entry : fs::directory_iterator(titles, error)) {
+        if (error) break;
+        if (!entry.is_directory(error)) continue;
+        fs::path candidate = fs::path("title") / "00010000" / entry.path().filename() / "data";
+        if (fs::is_directory(project_.nand_folder() / candidate, error)) {
+            relative = candidate;
+            break;
+        }
+        error.clear();
+    }
+    if (relative.empty()) {
+        saves_message_ = "No Wii Party save data was found yet. Launch the game and save once, then try again.";
+        return;
+    }
+    int keep = std::max(1, std::atoi(value("saves.backups").c_str()));
+    wp::saves::Outcome outcome = wp::saves::back_up(project_.nand_folder(), relative, project_.backups_folder(), keep, std::time(nullptr));
+    switch (outcome.result) {
+    case wp::saves::Result::Created: saves_message_ = "Save backup created: " + outcome.backup.filename().string(); break;
+    case wp::saves::Result::Unchanged: saves_message_ = "No new backup needed; save data matches the newest backup."; break;
+    case wp::saves::Result::NoSave: saves_message_ = "No Wii Party save data was found yet."; break;
+    case wp::saves::Result::Invalid: saves_message_ = "Save data failed validation; it was not backed up. " + outcome.message; break;
+    default: saves_message_ = "Could not back up save data: " + outcome.message; break;
+    }
+    refresh_backups();
+}
+
 void App::refresh_backups() {
     backups_ = wp::saves::list(project_.backups_folder());
     backup_sizes_.clear();
@@ -1174,10 +1210,12 @@ void App::saves_page(float width) {
     const ui::Palette& p = ui::palette();
     const Texts& t = texts();
     ImVec2 top = ImGui::GetCursorScreenPos();
-    heading(t.saves, t.saves_intro, width - px(150));
+    heading(t.saves, t.saves_intro, width - px(270));
     ImVec2 after = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(140), top.y));
-    if (ui::button(t.open_folder, Kind::Secondary, 140.0f)) {
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(258), top.y));
+    if (ui::button("Back up now", Kind::Primary, 124.0f)) create_save_backup();
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(126), top.y));
+    if (ui::button(t.open_folder, Kind::Secondary, 120.0f)) {
         std::error_code error;
         std::filesystem::create_directories(project_.backups_folder(), error);
         std::string url = "file:///" + utf8_of(project_.backups_folder().lexically_normal());
@@ -1200,9 +1238,17 @@ void App::saves_page(float width) {
         }
         ImGui::PushID(static_cast<int>(i));
         std::string date = backup_date(backups_[i].name);
-        row(width, date.c_str(), backup_sizes_[i].c_str(), 110.0f, 36.0f, [&] {
-            if (ui::button(t.restore, Kind::Secondary, 110.0f)) {
+        row(width, date.c_str(), backup_sizes_[i].c_str(), 194.0f, 36.0f, [&] {
+            if (ui::button(t.restore, Kind::Secondary, 94.0f)) {
                 restore_index_ = static_cast<int>(i);
+                delete_backup_action_ = false;
+                ImGui::OpenPopup("restore");
+                ui::set_value(ImHashStr("restore-fade"), 0.0f);
+            }
+            ImGui::SameLine(0, px(8));
+            if (ui::button("Delete", Kind::Secondary, 78.0f)) {
+                restore_index_ = static_cast<int>(i);
+                delete_backup_action_ = true;
                 ImGui::OpenPopup("restore");
                 ui::set_value(ImHashStr("restore-fade"), 0.0f);
             }
@@ -1237,9 +1283,13 @@ void App::restore_modal() {
             const wp::saves::Backup backup = backups_[static_cast<size_t>(restore_index_)];
             std::string date = backup_date(backup.name);
             float inner = px(440) - px(48);
-            ui::text(t.restore_title, Font::Semibold, 17.0f, p.text);
+            const char* modal_title = delete_backup_action_ ? "Delete this backup?" : t.restore_title;
+            std::string modal_question = delete_backup_action_
+                ? "This permanently deletes the selected backup folder. Your current in-game save is not changed."
+                : format(t.restore_question, date);
+            ui::text(modal_title, Font::Semibold, 17.0f, p.text);
             ui::gap(8);
-            ui::text(format(t.restore_question, date).c_str(), Font::Regular, ui::size::kBody, p.secondary, inner);
+            ui::text(modal_question.c_str(), Font::Regular, ui::size::kBody, p.secondary, inner);
             ui::gap(24);
             ImVec2 at = ImGui::GetCursorScreenPos();
             ImGui::SetCursorScreenPos(ImVec2(at.x + inner - px(110) - px(10) - px(110), at.y));
@@ -1248,19 +1298,20 @@ void App::restore_modal() {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SetCursorScreenPos(ImVec2(at.x + inner - px(110), at.y));
-            if (ui::button(t.restore, Kind::Primary, 110.0f)) {
-                int keep = std::atoi(value("saves.backups").c_str());
-                wp::saves::Outcome outcome = wp::saves::restore(project_.nand_folder(), project_.backups_folder(), backup, keep, std::time(nullptr));
-                switch (outcome.result) {
-                case wp::saves::Result::Created:
-                    saves_message_ = format(t.restore_done, date);
-                    break;
-                case wp::saves::Result::Unchanged:
-                    saves_message_ = format(t.restore_unchanged, date);
-                    break;
-                default:
-                    saves_message_ = format(t.restore_failed, outcome.message);
-                    break;
+            const char* action_label = delete_backup_action_ ? "Delete backup" : t.restore;
+            if (ui::button(action_label, Kind::Primary, 110.0f)) {
+                if (delete_backup_action_) {
+                    std::error_code error;
+                    std::filesystem::remove_all(backup.path, error);
+                    saves_message_ = error ? "Could not delete backup: " + error.message() : "Backup deleted.";
+                } else {
+                    int keep = std::atoi(value("saves.backups").c_str());
+                    wp::saves::Outcome outcome = wp::saves::restore(project_.nand_folder(), project_.backups_folder(), backup, keep, std::time(nullptr));
+                    switch (outcome.result) {
+                    case wp::saves::Result::Created: saves_message_ = format(t.restore_done, date); break;
+                    case wp::saves::Result::Unchanged: saves_message_ = format(t.restore_unchanged, date); break;
+                    default: saves_message_ = format(t.restore_failed, outcome.message); break;
+                    }
                 }
                 restore_index_ = -1;
                 refresh_backups();
@@ -1747,18 +1798,43 @@ void App::textures_page(float width) {
         std::error_code error;
         fs::path source = path_from(picked);
         fs::path pack_name = source.filename();
-        if (fs::is_directory(source, error)) {
+        fs::path archive_root;
+        std::string extension = source.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        bool zip_import = !fs::is_directory(source, error) && extension == ".zip";
+        bool archive_failed = false;
+        if (zip_import) {
+            pack_name = source.stem();
+            archive_root = project_.game_folder() / "texture-import-staging";
+            fs::remove_all(archive_root, error);
+            error.clear();
+            fs::create_directories(archive_root, error);
+            size_t archive_pngs = 0;
+            std::string archive_error;
+            if (error || !extract_texture_archive(source, archive_root, archive_pngs, archive_error)) {
+                texture_message_failed_ = true;
+                texture_message_ = "ZIP import failed: " + (archive_error.empty() ? error.message() : archive_error);
+                archive_failed = true;
+            } else {
+                source = archive_root;
+            }
+        }
+        if (!archive_failed && fs::is_directory(source, error)) {
+            fs::path package_root = source;
             if (fs::is_directory(source / "load", error)) source /= "load";
             bool has_png = false;
             for (fs::recursive_directory_iterator it(source, error), end; !error && it != end; it.increment(error)) {
-                if (it->is_regular_file(error) && it->path().extension() == ".png") { has_png = true; break; }
+                std::string ext = it->path().extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (it->is_regular_file(error) && ext == ".png" && it->path().filename() != "preview.png" &&
+                    it->path().filename() != "thumbnail.png" && it->path().filename() != "cover.png") { has_png = true; break; }
             }
             if (has_png) {
                 error.clear();
                 fs::create_directories(load, error);
                 fs::create_directories(off, error);
+                if (pack_name.empty() || pack_name == "." || pack_name == "..") pack_name = "Imported Pack";
                 fs::path base = load / pack_name;
-                if (pack_name.empty() || pack_name == "." || pack_name == "..") base = load / "Imported Pack";
                 for (int suffix = 2; fs::exists(base, error) && !error; suffix++) {
                     base = load / (pack_name.string() + " (" + std::to_string(suffix) + ")");
                 }
@@ -1766,35 +1842,55 @@ void App::textures_page(float width) {
                 fs::create_directories(base, error);
                 size_t copied = 0;
                 for (fs::recursive_directory_iterator it(source, error), end; !error && it != end; it.increment(error)) {
-                    if (!it->is_regular_file(error) || it->path().extension() != ".png") continue;
-                    fs::path relative = fs::relative(it->path(), source, error);
-                    if (error || relative.empty() || relative.generic_string().find("..") == 0) { error.clear(); continue; }
+                    if (!it->is_regular_file(error)) continue;
+                    std::string ext = it->path().extension().string();
+                    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    if (ext != ".png" && it->path().filename() != "pack.ini" && it->path().filename() != "README.txt" &&
+                        it->path().filename() != "README.md") continue;
+                    fs::path relative = it->path().lexically_relative(source);
+                    if (relative.empty() || relative.is_absolute()) continue;
+                    bool unsafe = false;
+                    for (const fs::path& part : relative) if (part == "..") unsafe = true;
+                    if (unsafe) continue;
                     fs::path destination = base / relative;
                     fs::create_directories(destination.parent_path(), error);
                     if (!error) {
                         fs::copy_file(it->path(), destination, fs::copy_options::none, error);
-                        if (!error) copied++;
+                        if (!error && ext == ".png" && it->path().filename() != "preview.png" &&
+                            it->path().filename() != "thumbnail.png" && it->path().filename() != "cover.png") copied++;
                     }
                     error.clear();
                 }
+                // Preserve pack metadata located at the archive root when its textures are inside a nested load/ folder.
+                for (const char* metadata : {"pack.ini", "README.txt", "README.md"}) {
+                    for (const fs::path& root : {package_root, source}) {
+                        fs::path candidate = root / metadata;
+                        if (fs::is_regular_file(candidate, error) && !fs::exists(base / metadata, error)) {
+                            fs::copy_file(candidate, base / metadata, fs::copy_options::overwrite_existing, error);
+                        }
+                        error.clear();
+                    }
+                }
                 texture_message_failed_ = copied == 0;
-                texture_message_ = copied == 0 ? "No PNG textures could be imported." :
+                texture_message_ = copied == 0 ? "No usable PNG texture files were found in that pack." :
                     "Imported texture pack: " + base.filename().string() + " (" + std::to_string(copied) + " PNGs).";
                 packs_dirty_ = true;
             } else {
                 texture_message_failed_ = true;
-                texture_message_ = "That folder has no PNG textures. Choose a texture pack folder or drag one here.";
+                texture_message_ = "That folder or ZIP has no usable PNG textures.";
             }
-        } else {
+            if (zip_import) { error.clear(); fs::remove_all(archive_root, error); }
+        } else if (!archive_failed) {
             texture_message_failed_ = true;
-            texture_message_ = "Choose or drop a texture-pack folder (not a ZIP file).";
+            texture_message_ = "Choose a folder or ZIP texture pack (not an individual PNG).";
         }
+        if (archive_failed && zip_import) { error.clear(); fs::remove_all(archive_root, error); }
     }
     ImVec2 top = ImGui::GetCursorScreenPos();
-    heading(t.page_textures, t.textures_intro, width - px(225));
+    heading(t.page_textures, t.textures_intro, width - px(335));
     ImVec2 after = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(218), top.y));
-    if (ui::button("Import folder", Kind::Primary, 104.0f)) {
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(326), top.y));
+    if (ui::button("Import folder", Kind::Secondary, 100.0f)) {
         SDL_ShowOpenFolderDialog(
             [](void* self, const char* const* folders, int) {
                 if (folders && folders[0]) {
@@ -1804,6 +1900,19 @@ void App::textures_page(float width) {
                 }
                 wake_main_loop();
             }, this, window_, nullptr, false);
+    }
+    ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(218), top.y));
+    if (ui::button("Import ZIP", Kind::Primary, 100.0f)) {
+        static SDL_DialogFileFilter zip_filter[] = {{"Texture pack ZIP", "zip"}};
+        SDL_ShowOpenFileDialog(
+            [](void* self, const char* const* files, int) {
+                if (files && files[0]) {
+                    App* app = static_cast<App*>(self);
+                    std::lock_guard<std::mutex> lock(app->picked_mutex_);
+                    app->picked_texture_pack_ = files[0];
+                }
+                wake_main_loop();
+            }, this, window_, zip_filter, 1, utf8_of(project_.game_folder()).c_str(), false);
     }
     ImGui::SetCursorScreenPos(ImVec2(top.x + width - px(106), top.y));
     if (ui::button(t.open_folder, Kind::Secondary, 104.0f)) {
@@ -1820,24 +1929,84 @@ void App::textures_page(float width) {
     }
     if (packs_dirty_) {
         packs_dirty_ = false;
+        for (TexturePack& old_pack : packs_) {
+            if (old_pack.thumbnail) SDL_DestroyTexture(old_pack.thumbnail);
+            old_pack.thumbnail = nullptr;
+        }
         packs_.clear();
         std::error_code error;
+        fs::create_directories(load, error);
+        fs::create_directories(off, error);
+        std::map<std::string, size_t> active_files;
         for (const auto& [folder, enabled] : {std::pair{load, true}, std::pair{off, false}}) {
-            for (const auto& entry : std::filesystem::directory_iterator(folder, error)) {
-                if (!entry.is_directory(error)) {
-                    continue;
-                }
+            error.clear();
+            for (const auto& entry : fs::directory_iterator(folder, error)) {
+                if (error || !entry.is_directory(error)) continue;
                 TexturePack pack;
-                pack.name = utf8_of(entry.path().filename());
+                pack.folder = entry.path();
+                pack.folder_name = utf8_of(entry.path().filename());
+                pack.name = pack.folder_name;
                 pack.enabled = enabled;
-                for (auto it = std::filesystem::recursive_directory_iterator(entry.path(), error); !error && it != std::filesystem::recursive_directory_iterator();
-                     it.increment(error)) {
-                    if (it->is_regular_file(error)) {
-                        pack.files++;
-                        pack.bytes += it->file_size(error);
-                    }
+                std::ifstream metadata(entry.path() / "pack.ini");
+                for (std::string line; std::getline(metadata, line);) {
+                    size_t equal = line.find('=');
+                    if (equal == std::string::npos) continue;
+                    std::string key = line.substr(0, equal), val = line.substr(equal + 1);
+                    auto trim = [](std::string& s) {
+                        size_t first = s.find_first_not_of(" \t\r\"'");
+                        if (first == std::string::npos) { s.clear(); return; }
+                        size_t last = s.find_last_not_of(" \t\r\"'");
+                        s = s.substr(first, last - first + 1);
+                    };
+                    trim(key); trim(val);
+                    std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    if (key == "name" && !val.empty()) pack.name = val;
+                    else if (key == "version") pack.version = val;
+                    else if (key == "author") pack.author = val;
+                    else if (key == "description") pack.description = val;
                 }
-                packs_.push_back(pack);
+                for (const char* thumbnail : {"preview.png", "thumbnail.png", "cover.png"}) {
+                    fs::path candidate = entry.path() / thumbnail;
+                    if (fs::is_regular_file(candidate, error)) { pack.preview = candidate; break; }
+                    error.clear();
+                }
+                if (!pack.preview.empty()) {
+                    SDL_Surface* image = SDL_LoadPNG(utf8_of(pack.preview).c_str());
+                    SDL_Renderer* renderer = SDL_GetRenderer(window_);
+                    if (image && renderer) {
+                        int thumb_width = std::min(image->w, 96);
+                        int thumb_height = std::max(1, image->h * thumb_width / std::max(1, image->w));
+                        if (thumb_height > 60) { thumb_height = 60; thumb_width = std::max(1, image->w * thumb_height / std::max(1, image->h)); }
+                        SDL_Surface* scaled = SDL_ScaleSurface(image, thumb_width, thumb_height, SDL_SCALEMODE_LINEAR);
+                        if (scaled) pack.thumbnail = SDL_CreateTextureFromSurface(renderer, scaled);
+                        SDL_DestroySurface(scaled);
+                    }
+                    SDL_DestroySurface(image);
+                }
+                error.clear();
+                for (fs::recursive_directory_iterator it(entry.path(), error), end; !error && it != end; it.increment(error)) {
+                    if (!it->is_regular_file(error)) continue;
+                    uintmax_t bytes = it->file_size(error);
+                    pack.bytes += error ? 0 : bytes;
+                    std::string ext = it->path().extension().string();
+                    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    if (ext != ".png") continue;
+                    pack.files++;
+                    std::string filename = utf8_of(it->path().filename());
+                    if (filename == "preview.png" || filename == "thumbnail.png" || filename == "cover.png") continue;
+                    std::string key = it->path().lexically_relative(entry.path()).generic_string();
+                    std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    pack.texture_names.push_back(key);
+                    if (enabled) active_files[key]++;
+                }
+                packs_.push_back(std::move(pack));
+            }
+        }
+        for (TexturePack& pack : packs_) {
+            if (!pack.enabled) continue;
+            for (const std::string& texture : pack.texture_names) {
+                auto found = active_files.find(texture);
+                if (found != active_files.end() && found->second > 1) pack.conflicts++;
             }
         }
         std::sort(packs_.begin(), packs_.end(), [](const TexturePack& a, const TexturePack& b) { return a.name < b.name; });
@@ -1851,25 +2020,42 @@ void App::textures_page(float width) {
         row(width, t.textures_empty, "", 0.0f, 0.0f, [] {});
     }
     for (size_t i = 0; i < packs_.size(); i++) {
-        if (i > 0) {
-            inset_separator(width);
-        }
+        if (i > 0) inset_separator(width);
         TexturePack& pack = packs_[i];
         char size[32];
         std::snprintf(size, sizeof(size), "%.1f MB", static_cast<double>(pack.bytes) / (1024.0 * 1024.0));
         std::string detail = format(t.textures_files, std::to_string(pack.files), size);
+        if (!pack.version.empty()) detail += " · v" + pack.version;
+        if (!pack.author.empty()) detail += " · by " + pack.author;
+        if (!pack.description.empty()) detail += " · " + pack.description;
+        if (pack.conflicts > 0) detail += " · ⚠ " + std::to_string(pack.conflicts) + " texture conflicts";
         ImGui::PushID(static_cast<int>(i));
-        row(width, pack.name.c_str(), detail.c_str(), 42.0f, 24.0f, [&] {
+        row(width, pack.name.c_str(), detail.c_str(), 162.0f, 60.0f, [&] {
+            if (pack.thumbnail) {
+                ImGui::Image(ImTextureRef(static_cast<ImTextureID>(reinterpret_cast<intptr_t>(pack.thumbnail))), ImVec2(px(76), px(48)));
+                ImGui::SameLine(0, px(10));
+            }
             if (ui::toggle("toggle", pack.enabled)) {
                 std::error_code error;
-                std::filesystem::path from = (pack.enabled ? load : off) / path_from(pack.name);
-                std::filesystem::path to = (pack.enabled ? off : load) / path_from(pack.name);
-                std::filesystem::create_directories(to.parent_path(), error);
-                std::filesystem::rename(from, to, error);
-                packs_dirty_ = true;
+                fs::path from = (pack.enabled ? load : off) / path_from(pack.folder_name);
+                fs::path to = (pack.enabled ? off : load) / path_from(pack.folder_name);
+                fs::create_directories(to.parent_path(), error);
+                error.clear();
+                fs::rename(from, to, error);
+                if (error) {
+                    texture_message_failed_ = true;
+                    texture_message_ = "Could not change pack state: " + error.message();
+                } else {
+                    packs_dirty_ = true;
+                }
             }
         });
         ImGui::PopID();
+    }
+    if (std::any_of(packs_.begin(), packs_.end(), [](const TexturePack& pack) { return pack.enabled && pack.conflicts > 0; })) {
+        ui::gap(8);
+        ui::text("Warning: active packs contain overlapping texture paths. The game may use one pack's texture instead of another's.",
+                 Font::Regular, ui::size::kDetail, p.danger, width);
     }
     card.end();
 }
