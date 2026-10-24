@@ -99,6 +99,9 @@ std::string shown_value(const std::string& key, const std::string& value) {
     if (key == "video.resolution") {
         return value == "auto" ? "Automatic" : value;
     }
+    if (key == "video.filtering") {
+        return value == "nearest" ? "Nearest neighbour (sharp pixels)" : "Linear (smooth)";
+    }
     if (key == "system.interface_language") {
         return value == "es" ? "Español" : value == "gl" ? "Galego" : "English";
     }
