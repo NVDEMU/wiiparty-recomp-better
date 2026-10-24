@@ -332,6 +332,27 @@ void App::captures_page(float width) {
         SDL_OpenURL(file_url(folder).c_str());
     }
     ImGui::SetCursorScreenPos(after);
+
+    fs::path replay_folder = project_.game_folder() / "replays";
+    fs::path replay_file = replay_folder / "last.wpr";
+    {
+        std::error_code error;
+        bool recorded = fs::is_regular_file(replay_file, error);
+        Card replay_card(width);
+        std::string detail = recorded
+            ? "Last input replay is saved. Start the game and press F7 to play it back."
+            : "Press F6 while playing to record button/pointer input; press F6 again to save it. F7 replays the last trace.";
+        row(width, "Input replays", detail.c_str(), 140.0f, 36.0f, [&] {
+            if (ui::button("Open replays", Kind::Secondary, 140.0f)) {
+                std::error_code folder_error;
+                fs::create_directories(replay_folder, folder_error);
+                SDL_OpenURL(file_url(replay_folder).c_str());
+            }
+        });
+        replay_card.end();
+        ui::gap(16);
+    }
+
     if (!captures_listed_) {
         list_captures();
     }
