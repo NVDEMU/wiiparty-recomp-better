@@ -1,8 +1,9 @@
-name: macOS
+name: Build and Release
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: macos-${{ github.head_ref || github.ref_name }}
+  group: builds-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-macos:
     name: Build macOS (${{ matrix.arch }})
     strategy:
       fail-fast: false
@@ -80,49 +81,163 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  nightly:
-    name: Publish macOS Nightly
-    permissions:
-      contents: write
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-2022
     steps:
       - name: Check out source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download both installers
+      - name: Set up MinGW-w64 and Ninja
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure native game runtime
+        shell: msys2 {0}
+        run: cmake -S . -B build/engine -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile native game runtime
+        shell: msys2 {0}
+        run: cmake --build build/engine --target wp_engine --parallel 2
+
+      - name: Configure launcher
+        shell: msys2 {0}
+        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile launcher
+        shell: msys2 {0}
+        run: cmake --build build/launcher --target launcher --parallel 2
+
+      - name: Package Windows installer
+        shell: pwsh
+        run: |
+          if (!(Test-Path "build/launcher/wiipartyrecomp-launcher.exe")) { throw "Launcher executable was not produced" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "build/launcher/wiipartyrecomp-launcher.exe" "dist/wiipartyrecomp-launcher.exe"
+          Compress-Archive -Path "dist/wiipartyrecomp-launcher.exe" -DestinationPath "dist/wiipartyrecomp-windows-x86_64.zip" -Force
+          $lines = Get-ChildItem dist -File | Where-Object { $_.Name -notlike "SHA256-*" } | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          }
+          $lines | Set-Content "dist/SHA256-windows.txt" -Encoding ascii
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiiparty-windows-x86_64
+          path: |
+            dist/wiipartyrecomp-launcher.exe
+            dist/wiipartyrecomp-windows-x86_64.zip
+            dist/SHA256-windows.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  build-linux:
+    name: Build Linux x86_64 AppImage
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build python3 curl git \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+            libegl-dev libgl-dev libpulse-dev libasound2-dev libudev-dev libdbus-1-dev
+
+      - name: Configure native game runtime
+        run: >-
+          cmake -S . -B build/engine -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DWP_FETCH_SDL3=ON
+          -DWP_REQUIRE_SDL3=ON
+
+      - name: Compile native game runtime
+        run: cmake --build build/engine --target wp_engine --parallel 2
+
+      - name: Build launcher and package AppImage
+        run: python3 tools/make_appimage.py --build build/launcher-linux
+
+      - name: Verify AppImage and checksum
+        run: |
+          test -s build/wiipartyrecomp-launcher-x86_64.AppImage
+          file build/wiipartyrecomp-launcher-x86_64.AppImage
+          sha256sum build/wiipartyrecomp-launcher-x86_64.AppImage > build/SHA256-linux.txt
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiiparty-linux-x86_64
+          path: |
+            build/wiipartyrecomp-launcher-x86_64.AppImage
+            build/SHA256-linux.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all platform packages
         uses: actions/download-artifact@v4
         with:
-          pattern: wiiparty-macos-*
+          pattern: wiiparty-*
           merge-multiple: true
           path: dist
 
-      - name: Move Nightly tag to this build
+      - name: Update Nightly tag
+        if: github.ref == 'refs/heads/main'
         run: |
           git tag -f Nightly "$GITHUB_SHA"
           git push --force origin refs/tags/Nightly
 
-      - name: Publish Nightly release
+      - name: Publish release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: Nightly
-          name: Nightly
-          prerelease: true
-          make_latest: false
+          tag_name: ${{ github.ref == 'refs/heads/main' && 'Nightly' || github.ref_name }}
+          name: ${{ github.ref == 'refs/heads/main' && 'Nightly' || github.ref_name }}
+          prerelease: ${{ github.ref == 'refs/heads/main' || contains(github.ref_name, '-') }}
+          make_latest: ${{ github.ref != 'refs/heads/main' && !contains(github.ref_name, '-') }}
           overwrite_files: true
-          generate_release_notes: false
+          generate_release_notes: true
           body: |
-            Automatic macOS builds of Wii Party Recomp from the latest successful `main` commit.
+            Cross-platform Wii Party Recomp launcher builds. The launcher installs the recompiled game from your own legally obtained Wii Party disc; no game disc or game data is included.
 
-            **Apple Silicon:** `WiiPartyRecomp-macos-arm64.dmg`
-            **Intel:** `WiiPartyRecomp-macos-x86_64.dmg`
+            Windows x64: wiipartyrecomp-launcher.exe or the ZIP containing it
+            Linux x86_64: wiipartyrecomp-launcher-x86_64.AppImage (glibc 2.38+)
+            macOS Apple Silicon: WiiPartyRecomp-macos-arm64.dmg
+            macOS Intel: WiiPartyRecomp-macos-x86_64.dmg
 
-            These builds are experimental and have not yet been verified through a full game playthrough on physical Macs. Apps are ad-hoc signed, not Developer ID signed or notarized, so Gatekeeper may still warn. Bring your own legally obtained Wii Party disc image; game data is not included.
+            Checksums are provided in SHA256-*.txt assets. macOS apps are ad-hoc signed, not Developer ID signed or notarized; Gatekeeper may still warn. Full gameplay and real-machine validation is still needed.
           files: |
+            dist/wiipartyrecomp-launcher.exe
+            dist/wiipartyrecomp-windows-x86_64.zip
+            dist/wiipartyrecomp-launcher-x86_64.AppImage
             dist/WiiPartyRecomp-macos-arm64.dmg
             dist/WiiPartyRecomp-macos-x86_64.dmg
+            dist/SHA256-windows.txt
+            dist/SHA256-linux.txt
             dist/SHA256-arm64.txt
             dist/SHA256-x86_64.txt
