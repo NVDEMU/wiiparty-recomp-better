@@ -97,7 +97,7 @@ std::string session_time(const std::string& stored) {
 struct Minigame {
     const char* name;
     const char* category;
-    int players;
+    int players; // 0 means the game supports a range of player counts (About Face: 1–4).
 };
 
 const Minigame kMinigames[] = {
@@ -180,6 +180,16 @@ const Minigame kMinigames[] = {
     {"El templo maldito", "Pairs", 4},
     {"Las anillas", "Pairs", 4},
     {"Laberinto en equipo", "Pairs", 4},
+
+    // Challenge menu entries are separate playable variants, even when the
+    // regular version of the same minigame is listed above.
+    {"Marching Orders", "Challenge", 1},
+    {"Garden Gridlock", "Challenge", 1},
+    {"Challenge variant: Shifty Gifts", "Challenge", 1},
+    {"Challenge variant: Tippy Traverse", "Challenge", 2},
+    {"Challenge variant: Banana Blockade", "Challenge", 2},
+    {"Challenge variant: Clover Hunt", "Challenge", 2},
+    {"About Face", "Challenge", 0},
 };
 
 std::string lower(std::string value) {
@@ -456,7 +466,7 @@ void App::profiles_section(float width) {
     row(width, "Sessions launched", pref(sessions_key.c_str()).empty() ? "0" : pref(sessions_key.c_str()).c_str(), 0.0f, 0.0f, [] {});
     const std::string last = session_time(pref(played_key.c_str()));
     row(width, "Last launch", last.c_str(), 0.0f, 0.0f, [] {});
-    row(width, "Wins and placements", "Not tracked yet: the launcher does not currently receive reliable game-result events, so this is intentionally not fabricated.", 0.0f, 0.0f, [] {});
+
 
     fs::path mii_file = project_.game_folder() / "nand" / "shared2" / "menu" / "FaceLib" / "RFL_DB.dat";
     std::error_code error;
@@ -657,13 +667,12 @@ void App::party_page(float width) {
 
 void App::minigames_page(float width) {
     const ui::Palette& p = ui::palette();
-    heading("Minigame Library", "Browse the 79 minigames recorded in the project's manual Free Play checklist.", width);
+    heading("Minigame Library", "Browse all 86 catalog entries: the 79 standard minigames plus all 7 Challenge entries and variants.", width);
 
     static char search[128] = {};
     static int category_filter = 0;
     static bool favorites_only = false;
-    static int selection = -1;
-    const std::vector<std::string> categories = {"All categories", "4 players", "1 vs 3", "1 vs 1", "Pairs"};
+    const std::vector<std::string> categories = {"All categories", "4 players", "1 vs 3", "1 vs 1", "Pairs", "Challenge"};
     row(width, "Search", "Search by title or category.", 300.0f, 34.0f, [&] {
         ImGui::SetNextItemWidth(px(300));
         ImGui::InputText("##minigame-search", search, sizeof(search));
@@ -671,8 +680,8 @@ void App::minigames_page(float width) {
     row(width, "Category", "", 220.0f, 36.0f, [&] {
         ui::dropdown("minigame-category", categories, category_filter, 220.0f);
     });
-    row(width, "Favorites only", "Favorites and last selected entry are stored locally.", 42.0f, 24.0f, [&] {
-        bool state = favorites_only || pref("minigame.favorites_only") == "1";
+    row(width, "Favorites only", "Show just titles you have marked as favorites.", 42.0f, 24.0f, [&] {
+        bool state = pref("minigame.favorites_only") == "1";
         if (ui::toggle("minigame-favorites-only", state)) {
             favorites_only = !state;
             set_pref("minigame.favorites_only", favorites_only ? "1" : "0");
@@ -684,12 +693,12 @@ void App::minigames_page(float width) {
     int favorites = 0;
     for (size_t i = 0; i < std::size(kMinigames); ++i) {
         const std::string favorite_key = "minigame.favorite." + std::to_string(i);
-        const bool favorite = pref(favorite_key.c_str()) == "1";
-        if (favorite) ++favorites;
+        if (pref(favorite_key.c_str()) == "1") ++favorites;
     }
 
     ui::gap(12);
-    const std::string count_label = std::to_string(favorites) + " favorite(s)";
+    const std::string count_label = std::to_string(std::size(kMinigames)) + " entries · " +
+        std::to_string(favorites) + " favorite(s)";
     ui::text(count_label.c_str(), Font::Regular, ui::size::kDetail, p.secondary);
     ui::gap(8);
     Card list(width);
@@ -703,16 +712,12 @@ void App::minigames_page(float width) {
         if (favorites_only && !favorite) continue;
         if (!needle.empty() && lower(title + " " + category).find(needle) == std::string::npos) continue;
         if (shown > 0) inset_separator(width);
-        const int row_index = static_cast<int>(i);
-        const std::string detail = category + " · " + std::to_string(game.players) + " players · manually checked";
-        ImGui::PushID(row_index);
-        row(width, title.c_str(), detail.c_str(), 168.0f, 30.0f, [&] {
-            if (ui::button(selection == row_index ? "Selected" : "Details", selection == row_index ? Kind::Primary : Kind::Secondary, 78.0f)) {
-                selection = row_index;
-                set_pref("minigame.recent", std::to_string(row_index));
-            }
-            ImGui::SameLine(0.0f, px(8));
-            if (ImGui::Checkbox("Fav", &favorite)) set_pref(favorite_key.c_str(), favorite ? "1" : "0");
+        const std::string player_count = game.players == 0 ? "1–4 players" : std::to_string(game.players) + (game.players == 1 ? " player" : " players");
+        std::string detail = category + " · " + player_count;
+        if (category != "Challenge") detail += " · listed in the Free Play checklist";
+        ImGui::PushID(static_cast<int>(i));
+        row(width, title.c_str(), detail.c_str(), 86.0f, 30.0f, [&] {
+            if (ImGui::Checkbox("Favorite", &favorite)) set_pref(favorite_key.c_str(), favorite ? "1" : "0");
         });
         ImGui::PopID();
         ++shown;
@@ -720,13 +725,6 @@ void App::minigames_page(float width) {
     if (shown == 0) row(width, "No matches", "Try a different title, category, or favorites filter.", 0.0f, 0.0f, [] {});
     list.end();
 
-    const int recent = pref_int("minigame.recent", -1);
-    if (selection < 0) selection = recent;
-    if (selection >= 0 && selection < static_cast<int>(std::size(kMinigames))) {
-        ui::gap(12);
-        const Minigame& game = kMinigames[static_cast<size_t>(selection)];
-        row(width, "Selected minigame", (std::string(game.name) + " · " + game.category).c_str(), 0.0f, 0.0f, [] {});
-    }
     ui::gap(10);
-    ui::text("Selecting a title records it as recently viewed; it does not launch the minigame. Safe direct launching requires an engine/game-state hook that this build does not expose yet.", Font::Regular, ui::size::kDetail, p.secondary, width);
+    ui::text("This page is a catalog and favorites list only. Records, scores and direct-launch controls are not available here because the game does not expose reliable result or minigame-selection hooks yet.", Font::Regular, ui::size::kDetail, p.secondary, width);
 }
