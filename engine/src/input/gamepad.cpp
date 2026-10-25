@@ -24,7 +24,6 @@ namespace {
 constexpr float kGravity = 9.80665f;
 constexpr float kPointerPerRadian = 2.3f;
 constexpr float kStickPointerSpeed = 1.6f;
-constexpr float kStickDeadZone = 0.15f;
 constexpr float kPointerLimit = 1.3f;
 constexpr float kStillGyro = 0.08f;
 constexpr float kStillAccel = 0.4f;
