@@ -11,9 +11,10 @@ on:
 permissions:
   contents: read
 
+# Give every commit its own concurrency group so a later push does not cancel it.
 concurrency:
-  group: builds-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: builds-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build-macos:
@@ -201,7 +202,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Main-branch pushes all build, but only the newest main commit may update Nightly.
+      # This prevents an older, slower build from replacing newer Nightly assets.
+      - name: Check whether this commit is still the latest main commit
+        id: freshness
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          latest="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Nightly publishing because $GITHUB_SHA is superseded by $latest"
+          fi
+
       - name: Download all platform packages
+        if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && steps.freshness.outputs.publish == 'true')
         uses: actions/download-artifact@v4
         with:
           pattern: wiiparty-*
@@ -209,12 +226,13 @@ jobs:
           path: dist
 
       - name: Update Nightly tag
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.freshness.outputs.publish == 'true'
         run: |
           git tag -f Nightly "$GITHUB_SHA"
           git push --force origin refs/tags/Nightly
 
       - name: Publish release and upload assets
+        if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && steps.freshness.outputs.publish == 'true')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref == 'refs/heads/main' && 'Nightly' || github.ref_name }}
