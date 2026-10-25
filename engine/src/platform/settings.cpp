@@ -63,6 +63,10 @@ const std::vector<Option>& options() {
         for (size_t i = 0; i < padmap::kActionCount; i++) {
             result.push_back({padmap::setting_key(i), "auto"});
         }
+        // Launcher-calibrated input values persist in settings.ini but stay out of
+        // the generic in-game options list (their controls live in the Calibration Lab).
+        result.push_back({"input.stick_deadzone", "0.15"});
+        result.push_back({"input.button_threshold", "0.50"});
         return result;
     }();
     return list;
