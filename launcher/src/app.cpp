@@ -255,11 +255,6 @@ App::~App() {
 }
 
 void App::start_update_check() {
-#ifdef __APPLE__
-    // macOS launcher updates replace the complete .app bundle, so the executable-only
-    // Windows/Linux updater must not run on this platform. Install updates from the DMG.
-    return;
-#else
     if (pref("check_updates") == "0" || pref("offline") == "1") {
         return;
     }
@@ -270,13 +265,12 @@ void App::start_update_check() {
         bool listed = latest_release(release, current, WP_LAUNCHER_VERSION, error);
         std::lock_guard<std::mutex> lock(background().mutex);
         background().current = current;
-        if (listed && newer_version(release.version, WP_LAUNCHER_VERSION)) {
+        if (listed && update_available(release, WP_LAUNCHER_VERSION)) {
             background().release = release;
             background().found = true;
         }
         wake_main_loop();
     }).detach();
-#endif
 }
 
 void App::start_estimate() {
@@ -309,8 +303,7 @@ void App::update_launcher() {
     launcher_state_ = 1;
     launcher_error_.clear();
     download_thread_ = std::thread([this, release] {
-        std::filesystem::path target = launcher_path();
-        target += ".download";
+        std::filesystem::path target = update_download_path();
         std::string error;
         bool ok = download(release.url, target, error);
         if (ok && sha256_of(target) != release.sha256) {
@@ -344,7 +337,7 @@ void App::launcher_update_card(float width) {
     }
     const ui::Palette& p = ui::palette();
     const Texts& t = texts();
-    std::string title = format(t.launcher_update_title, "v" + release.version);
+    std::string title = format(t.launcher_update_title, release.version == "Nightly" ? "Nightly build" : "v" + release.version);
     bool failed = launcher_state_ == 2;
     std::string detail = failed ? format(t.launcher_update_failed, failure) : std::string(t.launcher_update_detail);
     Card card(width);
