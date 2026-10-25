@@ -115,8 +115,16 @@ The project's scope is the original game, faithful and optimized.
 
 ### Planned features
 
+Detailed requirements and priorities are tracked in [the quality-of-life feature roadmap](docs/FEATURES_QOL.md).
+
 | Feature | Notes |
 | :--- | :--- |
+| **Controller Calibration Lab** | Live controller input, assignment, supported motion/pointer checks, and calibration tools. |
+| **Player Profiles & Statistics** | Named local players, Mii links, controller preferences, party history and verified records. |
+| **Party Setup Wizard** | Guided player/Mii selection, controller assignment and ready checks, with saved party presets. |
+| **Minigame Library** | Searchable catalog, filters, favorites, recently played games and collections. Direct launching depends on reliable game integration. |
+| **Living-Room Mode** | Full-screen, gamepad-navigable launcher designed for TVs and couch play. |
+| **Graphics Presets & Automatic Optimization** | Performance, Balanced and Quality presets plus measured recommendations using existing graphics controls. |
 | **True ultrawide rendering** | Correct wider camera framing and gameplay projection, rather than stretching the 16:9 image. Still planned; the new resolution presets change window size only. |
 | **Online play with friends** | A fourth, green **Online** button next to the three buttons at the bottom of the main menu. There is no server: players connect directly, and the game exchanges only each player's inputs in lockstep. Not started. |
 
