@@ -22,8 +22,8 @@ namespace wp::gamepad {
 namespace {
 
 constexpr float kGravity = 9.80665f;
-constexpr float kStickThreshold = 0.5f;
-constexpr float kTriggerThreshold = 0.5f;
+constexpr float stick_threshold() = 0.5f;
+constexpr float trigger_threshold() = 0.5f;
 constexpr float kPointerPerRadian = 2.3f;
 constexpr float kStickPointerSpeed = 1.6f;
 constexpr float kStickDeadZone = 0.15f;
@@ -86,6 +86,25 @@ bool enabled() {
 
 float axis(SDL_Gamepad* pad, SDL_GamepadAxis which) {
     return static_cast<float>(SDL_GetGamepadAxis(pad, which)) / 32767.0f;
+}
+
+float setting_float(const char* key, float fallback, float low, float high) {
+    const std::string text = settings::text(key, nullptr);
+    char* end = nullptr;
+    const float parsed = std::strtof(text.c_str(), &end);
+    return end == text.c_str() ? fallback : std::clamp(parsed, low, high);
+}
+
+float stick_threshold() {
+    return setting_float("input.button_threshold", stick_threshold(), 0.10f, 0.95f);
+}
+
+float trigger_threshold() {
+    return setting_float("input.button_threshold", trigger_threshold(), 0.10f, 0.95f);
+}
+
+float stick_deadzone() {
+    return setting_float("input.stick_deadzone", kStickDeadZone, 0.01f, 0.50f);
 }
 
 std::vector<std::string> device_keys(const SDL_JoystickID* ids, int count) {
@@ -222,7 +241,7 @@ Snapshot read(Pad& pad, float dt) {
     snapshot.right_x = right_x;
     snapshot.right_y = right_y;
     bool motion_mode = snapshot.buttons[SDL_GAMEPAD_BUTTON_LEFT_SHOULDER];
-    if (!motion_mode && (std::fabs(right_x) > kStickDeadZone || std::fabs(right_y) > kStickDeadZone)) {
+    if (!motion_mode && (std::fabs(right_x) > stick_deadzone() || std::fabs(right_y) > stick_deadzone())) {
         pad.pointer_active = true;
         pad.pointer_x += right_x * kStickPointerSpeed * dt;
         pad.pointer_y += right_y * kStickPointerSpeed * dt;
@@ -435,16 +454,16 @@ uint32_t menu_buttons() {
         auto held = [&](SDL_GamepadButton button) { return current.buttons[button]; };
         SDL_GamepadButton accept = current.nintendo_layout ? SDL_GAMEPAD_BUTTON_EAST : SDL_GAMEPAD_BUTTON_SOUTH;
         SDL_GamepadButton cancel = current.nintendo_layout ? SDL_GAMEPAD_BUTTON_SOUTH : SDL_GAMEPAD_BUTTON_EAST;
-        if (held(SDL_GAMEPAD_BUTTON_DPAD_UP) || current.left_y < -kStickThreshold) {
+        if (held(SDL_GAMEPAD_BUTTON_DPAD_UP) || current.left_y < -stick_threshold()) {
             result |= kMenuUp;
         }
-        if (held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) || current.left_y > kStickThreshold) {
+        if (held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) || current.left_y > stick_threshold()) {
             result |= kMenuDown;
         }
-        if (held(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || current.left_x < -kStickThreshold) {
+        if (held(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || current.left_x < -stick_threshold()) {
             result |= kMenuLeft;
         }
-        if (held(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || current.left_x > kStickThreshold) {
+        if (held(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || current.left_x > stick_threshold()) {
             result |= kMenuRight;
         }
         if (held(accept)) {
@@ -474,18 +493,18 @@ State poll(uint32_t slot, bool sideways) {
     for (int i = 0; i < padmap::kLeftTrigger; i++) {
         pressed.held[i] = current.buttons[i];
     }
-    pressed.held[padmap::kLeftTrigger] = current.left_trigger > kTriggerThreshold;
-    pressed.held[padmap::kRightTrigger] = current.right_trigger > kTriggerThreshold;
-    pressed.held[padmap::kRightStickUp] = current.right_y < -kStickThreshold;
-    pressed.held[padmap::kRightStickDown] = current.right_y > kStickThreshold;
-    pressed.held[padmap::kRightStickLeft] = current.right_x < -kStickThreshold;
-    pressed.held[padmap::kRightStickRight] = current.right_x > kStickThreshold;
+    pressed.held[padmap::kLeftTrigger] = current.left_trigger > trigger_threshold();
+    pressed.held[padmap::kRightTrigger] = current.right_trigger > trigger_threshold();
+    pressed.held[padmap::kRightStickUp] = current.right_y < -stick_threshold();
+    pressed.held[padmap::kRightStickDown] = current.right_y > stick_threshold();
+    pressed.held[padmap::kRightStickLeft] = current.right_x < -stick_threshold();
+    pressed.held[padmap::kRightStickRight] = current.right_x > stick_threshold();
     bool motion_mode = held(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
     b |= padmap::buttons(pressed, sideways, padmap::current_mapping());
-    bool left = held(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || current.left_x < -kStickThreshold;
-    bool right = held(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || current.left_x > kStickThreshold;
-    bool up = (held(SDL_GAMEPAD_BUTTON_DPAD_UP) && !motion_mode) || current.left_y < -kStickThreshold;
-    bool down = (held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) && !motion_mode) || current.left_y > kStickThreshold;
+    bool left = held(SDL_GAMEPAD_BUTTON_DPAD_LEFT) || current.left_x < -stick_threshold();
+    bool right = held(SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || current.left_x > stick_threshold();
+    bool up = (held(SDL_GAMEPAD_BUTTON_DPAD_UP) && !motion_mode) || current.left_y < -stick_threshold();
+    bool down = (held(SDL_GAMEPAD_BUTTON_DPAD_DOWN) && !motion_mode) || current.left_y > stick_threshold();
     if (sideways) {
         b |= (left ? input::kButtonUp : 0) | (right ? input::kButtonDown : 0) | (up ? input::kButtonRight : 0) | (down ? input::kButtonLeft : 0);
     } else {
