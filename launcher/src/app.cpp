@@ -1369,6 +1369,7 @@ void App::controls_page(float width) {
     }
     ImGui::SetCursorScreenPos(after);
     tester_section(width);
+    calibration_section(width);
     gamepads_section(width);
     pad_map_section(width);
     wiimotes_section(width);
