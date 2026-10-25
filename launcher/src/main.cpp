@@ -72,18 +72,16 @@ int main(int argc, char** argv) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Wii Party Recomp", SDL_GetError(), nullptr);
         return 1;
     }
-    float scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-    if (scale <= 0.0f) {
-        scale = 1.0f;
-    }
-    SDL_Window* window = SDL_CreateWindow("Wii Party Recomp", static_cast<int>(1040 * scale), static_cast<int>(712 * scale),
+    // SDL window dimensions are logical units; the high-density renderer handles
+    // Retina/HiDPI pixels. Do not multiply the default window size by display scale.
+    SDL_Window* window = SDL_CreateWindow("Wii Party Recomp", 1040, 712,
                                           SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     SDL_Renderer* renderer = window ? SDL_CreateRenderer(window, nullptr) : nullptr;
     if (!renderer) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Wii Party Recomp", SDL_GetError(), nullptr);
         return 1;
     }
-    SDL_SetWindowMinimumSize(window, static_cast<int>(820 * scale), static_cast<int>(592 * scale));
+    SDL_SetWindowMinimumSize(window, 820, 592);
     titlebar::install(window);
     bool synced = SDL_SetRenderVSync(renderer, 1);
     bool software = std::strcmp(SDL_GetRendererName(renderer), SDL_SOFTWARE_RENDERER) == 0;
