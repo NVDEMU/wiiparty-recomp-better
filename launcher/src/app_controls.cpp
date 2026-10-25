@@ -1,5 +1,6 @@
 #include "app.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
