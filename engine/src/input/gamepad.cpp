@@ -22,8 +22,6 @@ namespace wp::gamepad {
 namespace {
 
 constexpr float kGravity = 9.80665f;
-constexpr float stick_threshold() = 0.5f;
-constexpr float trigger_threshold() = 0.5f;
 constexpr float kPointerPerRadian = 2.3f;
 constexpr float kStickPointerSpeed = 1.6f;
 constexpr float kStickDeadZone = 0.15f;
