@@ -624,8 +624,8 @@ bool replace_launcher(const std::filesystem::path& downloaded, std::string& erro
         error = "could not create the updater helper script";
         return false;
     }
-    out << R"PS($ErrorActionPreference = "Stop"
-param([string]$Executable, [string]$Downloaded, [int]$ParentPid)
+    out << R"PS(param([string]$Executable, [string]$Downloaded, [int]$ParentPid)
+$ErrorActionPreference = "Stop"
 for ($i = 0; $i -lt 60; $i++) {
     if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
     Start-Sleep -Milliseconds 500
