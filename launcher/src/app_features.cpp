@@ -97,89 +97,99 @@ std::string session_time(const std::string& stored) {
 struct Minigame {
     const char* name;
     const char* category;
-    int players;
+    int players; // 0 means the game supports a range of player counts (About Face: 1–4).
 };
 
 const Minigame kMinigames[] = {
-    {"Al galope", "4 players", 4},
-    {"Tiro a la lata", "4 players", 4},
-    {"Terror zombi", "4 players", 4},
-    {"Montaña de regalos", "4 players", 4},
-    {"Obstáculos rodantes", "4 players", 4},
-    {"¡A por la bandera!", "4 players", 4},
-    {"Pica y trocea", "4 players", 4},
-    {"La pieza correcta", "4 players", 4},
-    {"¡Decid patata!", "4 players", 4},
-    {"Salto de esquí", "4 players", 4},
-    {"Cinturón de asteroides", "4 players", 4},
-    {"Caída libre", "4 players", 4},
-    {"Carrera rural", "4 players", 4},
-    {"El swing perfecto", "4 players", 4},
-    {"Guerra cósmica", "4 players", 4},
-    {"Lluvia de plumas", "4 players", 4},
-    {"Mii trilero", "4 players", 4},
-    {"Cronómetro mental", "4 players", 4},
-    {"Remates de volea", "4 players", 4},
-    {"Laberinto mareante", "4 players", 4},
-    {"Mii puzle", "4 players", 4},
-    {"¡Ovni a la vista!", "4 players", 4},
-    {"Helicóptero al rescate", "4 players", 4},
-    {"Por los pelos", "4 players", 4},
-    {"Bolas de choque", "4 players", 4},
-    {"Tópate al topo", "4 players", 4},
-    {"La estrella de la pista", "4 players", 4},
-    {"¡Puños fuera!", "4 players", 4},
-    {"Carrera galáctica", "4 players", 4},
-    {"Fotos perrunas", "4 players", 4},
-    {"Paso a paso", "4 players", 4},
-    {"Saltos selváticos", "4 players", 4},
-    {"Bebés llorones", "4 players", 4},
-    {"Como pez en el agua", "4 players", 4},
-    {"Mii a la carta", "4 players", 4},
-    {"Pirotecnia al azar", "4 players", 4},
-    {"Ataque sobre raíles", "4 players", 4},
-    {"Domina las dominadas", "4 players", 4},
-    {"La distancia justa", "4 players", 4},
-    {"Rodeo al volante", "4 players", 4},
-    {"El vagón del destino", "4 players", 4},
-    {"Tensión en la piscina", "1 vs 3", 4},
-    {"Pequeño saltamontes", "1 vs 3", 4},
-    {"Frutas voladoras", "1 vs 3", 4},
-    {"Clase de aeróbic", "1 vs 3", 4},
-    {"El escondite", "1 vs 3", 4},
-    {"Viajeros al tren", "1 vs 1", 2},
-    {"Sintonízate", "1 vs 1", 2},
-    {"¡A por la bandera!", "1 vs 1", 2},
-    {"¡Árbol va!", "1 vs 1", 2},
-    {"Bote a bote", "1 vs 1", 2},
-    {"Laberinto inclinable", "1 vs 1", 2},
-    {"Pizza a domicilio", "1 vs 1", 2},
-    {"Tiradores de élite", "1 vs 1", 2},
-    {"Memoria frutal", "1 vs 1", 2},
-    {"De vuelta al redil", "1 vs 1", 2},
-    {"Ases del aire", "1 vs 1", 2},
-    {"Lluvia de frutas", "Pairs", 4},
-    {"¡Canastas!", "Pairs", 4},
-    {"¡Explotad los globos!", "Pairs", 4},
-    {"Ensamblaje robótico", "Pairs", 4},
-    {"El puente movedizo", "Pairs", 4},
-    {"La bici voladora", "Pairs", 4},
-    {"Río abajo", "Pairs", 4},
-    {"Ovejas descarriadas", "Pairs", 4},
-    {"Las puertas del pánico", "Pairs", 4},
-    {"La casa encantada", "Pairs", 4},
-    {"Pesca sincronizada", "Pairs", 4},
-    {"Huida en vagoneta", "Pairs", 4},
-    {"Objetivo: la Tierra", "Pairs", 4},
-    {"Trineo veloz", "Pairs", 4},
-    {"Los cinco tréboles", "Pairs", 4},
-    {"Atrapad al ratón", "Pairs", 4},
-    {"La comba", "Pairs", 4},
-    {"Almacén de plátanos", "Pairs", 4},
-    {"Tiro a la lata", "Pairs", 4},
-    {"El templo maldito", "Pairs", 4},
-    {"Las anillas", "Pairs", 4},
-    {"Laberinto en equipo", "Pairs", 4},
+    {"Gallop Along", "4 players", 4},
+    {"Tin Can Toss", "4 players", 4},
+    {"Zombie Panic", "4 players", 4},
+    {"Present Mountain", "4 players", 4},
+    {"Rolling Obstacles", "4 players", 4},
+    {"Flag Frenzy", "4 players", 4},
+    {"Slice and Dice", "4 players", 4},
+    {"Perfect Piece", "4 players", 4},
+    {"Say Cheese!", "4 players", 4},
+    {"Ski Jump", "4 players", 4},
+    {"Asteroid Belt", "4 players", 4},
+    {"Free Fall", "4 players", 4},
+    {"Country Road Race", "4 players", 4},
+    {"Perfect Swing", "4 players", 4},
+    {"Cosmic Clash", "4 players", 4},
+    {"Feather Frenzy", "4 players", 4},
+    {"Mii Hustle", "4 players", 4},
+    {"Mind Timer", "4 players", 4},
+    {"Volley Finish", "4 players", 4},
+    {"Dizzy Maze", "4 players", 4},
+    {"Mii Puzzle", "4 players", 4},
+    {"UFO Alert!", "4 players", 4},
+    {"Rescue Helicopter", "4 players", 4},
+    {"By a Hair", "4 players", 4},
+    {"Crash Balls", "4 players", 4},
+    {"Whack-a-Mole", "4 players", 4},
+    {"Track Star", "4 players", 4},
+    {"Fists Out!", "4 players", 4},
+    {"Galactic Race", "4 players", 4},
+    {"Puppy Photos", "4 players", 4},
+    {"Step by Step", "4 players", 4},
+    {"Jungle Jumps", "4 players", 4},
+    {"Crying Babies", "4 players", 4},
+    {"Like a Fish in Water", "4 players", 4},
+    {"Mii at Your Service", "4 players", 4},
+    {"Random Fireworks", "4 players", 4},
+    {"Rail Attack", "4 players", 4},
+    {"Pull-Up Pro", "4 players", 4},
+    {"Just the Right Distance", "4 players", 4},
+    {"Driving Rodeo", "4 players", 4},
+    {"Destiny Carriage", "4 players", 4},
+    {"Pool Tension", "1 vs 3", 4},
+    {"Little Grasshopper", "1 vs 3", 4},
+    {"Flying Fruit", "1 vs 3", 4},
+    {"Aerobics Class", "1 vs 3", 4},
+    {"Hide-and-Seek", "1 vs 3", 4},
+    {"All Aboard", "1 vs 1", 2},
+    {"Tune In", "1 vs 1", 2},
+    {"Flag Frenzy", "1 vs 1", 2},
+    {"Timber!", "1 vs 1", 2},
+    {"Boat to Boat", "1 vs 1", 2},
+    {"Tilt Maze", "1 vs 1", 2},
+    {"Pizza Delivery", "1 vs 1", 2},
+    {"Sharpshooters", "1 vs 1", 2},
+    {"Fruit Memory", "1 vs 1", 2},
+    {"Back to the Fold", "1 vs 1", 2},
+    {"Aerial Aces", "1 vs 1", 2},
+    {"Fruit Shower", "Pairs", 4},
+    {"Slam Dunk!", "Pairs", 4},
+    {"Pop the Balloons!", "Pairs", 4},
+    {"Robot Assembly", "Pairs", 4},
+    {"Wobbly Bridge", "Pairs", 4},
+    {"Flying Bike", "Pairs", 4},
+    {"Downriver", "Pairs", 4},
+    {"Wayward Sheep", "Pairs", 4},
+    {"Panic Doors", "Pairs", 4},
+    {"Haunted House", "Pairs", 4},
+    {"Synchronized Fishing", "Pairs", 4},
+    {"Mine Cart Escape", "Pairs", 4},
+    {"Target Earth", "Pairs", 4},
+    {"Speedy Sled", "Pairs", 4},
+    {"Five-Leaf Clover", "Pairs", 4},
+    {"Catch the Mouse", "Pairs", 4},
+    {"Jump Rope", "Pairs", 4},
+    {"Banana Warehouse", "Pairs", 4},
+    {"Tin Can Toss", "Pairs", 4},
+    {"Cursed Temple", "Pairs", 4},
+    {"The Rings", "Pairs", 4},
+    {"Team Maze", "Pairs", 4},
+
+    // Challenge menu entries are separate playable variants, even when the
+    // regular version of the same minigame is listed above.
+    {"Marching Orders", "Challenge", 1},
+    {"Garden Gridlock", "Challenge", 1},
+    {"Challenge variant: Shifty Gifts", "Challenge", 1},
+    {"Challenge variant: Tippy Traverse", "Challenge", 2},
+    {"Challenge variant: Banana Blockade", "Challenge", 2},
+    {"Challenge variant: Clover Hunt", "Challenge", 2},
+    {"About Face", "Challenge", 0},
 };
 
 std::string lower(std::string value) {
@@ -456,7 +466,7 @@ void App::profiles_section(float width) {
     row(width, "Sessions launched", pref(sessions_key.c_str()).empty() ? "0" : pref(sessions_key.c_str()).c_str(), 0.0f, 0.0f, [] {});
     const std::string last = session_time(pref(played_key.c_str()));
     row(width, "Last launch", last.c_str(), 0.0f, 0.0f, [] {});
-    row(width, "Wins and placements", "Not tracked yet: the launcher does not currently receive reliable game-result events, so this is intentionally not fabricated.", 0.0f, 0.0f, [] {});
+
 
     fs::path mii_file = project_.game_folder() / "nand" / "shared2" / "menu" / "FaceLib" / "RFL_DB.dat";
     std::error_code error;
@@ -657,13 +667,12 @@ void App::party_page(float width) {
 
 void App::minigames_page(float width) {
     const ui::Palette& p = ui::palette();
-    heading("Minigame Library", "Browse the 79 minigames recorded in the project's manual Free Play checklist.", width);
+    heading("Minigame Library", "Browse all 86 catalog entries: the 79 standard minigames plus all 7 Challenge entries and variants.", width);
 
     static char search[128] = {};
     static int category_filter = 0;
     static bool favorites_only = false;
-    static int selection = -1;
-    const std::vector<std::string> categories = {"All categories", "4 players", "1 vs 3", "1 vs 1", "Pairs"};
+    const std::vector<std::string> categories = {"All categories", "4 players", "1 vs 3", "1 vs 1", "Pairs", "Challenge"};
     row(width, "Search", "Search by title or category.", 300.0f, 34.0f, [&] {
         ImGui::SetNextItemWidth(px(300));
         ImGui::InputText("##minigame-search", search, sizeof(search));
@@ -671,8 +680,8 @@ void App::minigames_page(float width) {
     row(width, "Category", "", 220.0f, 36.0f, [&] {
         ui::dropdown("minigame-category", categories, category_filter, 220.0f);
     });
-    row(width, "Favorites only", "Favorites and last selected entry are stored locally.", 42.0f, 24.0f, [&] {
-        bool state = favorites_only || pref("minigame.favorites_only") == "1";
+    row(width, "Favorites only", "Show just titles you have marked as favorites.", 42.0f, 24.0f, [&] {
+        bool state = pref("minigame.favorites_only") == "1";
         if (ui::toggle("minigame-favorites-only", state)) {
             favorites_only = !state;
             set_pref("minigame.favorites_only", favorites_only ? "1" : "0");
@@ -684,12 +693,12 @@ void App::minigames_page(float width) {
     int favorites = 0;
     for (size_t i = 0; i < std::size(kMinigames); ++i) {
         const std::string favorite_key = "minigame.favorite." + std::to_string(i);
-        const bool favorite = pref(favorite_key.c_str()) == "1";
-        if (favorite) ++favorites;
+        if (pref(favorite_key.c_str()) == "1") ++favorites;
     }
 
     ui::gap(12);
-    const std::string count_label = std::to_string(favorites) + " favorite(s)";
+    const std::string count_label = std::to_string(std::size(kMinigames)) + " entries · " +
+        std::to_string(favorites) + " favorite(s)";
     ui::text(count_label.c_str(), Font::Regular, ui::size::kDetail, p.secondary);
     ui::gap(8);
     Card list(width);
@@ -703,16 +712,12 @@ void App::minigames_page(float width) {
         if (favorites_only && !favorite) continue;
         if (!needle.empty() && lower(title + " " + category).find(needle) == std::string::npos) continue;
         if (shown > 0) inset_separator(width);
-        const int row_index = static_cast<int>(i);
-        const std::string detail = category + " · " + std::to_string(game.players) + " players · manually checked";
-        ImGui::PushID(row_index);
-        row(width, title.c_str(), detail.c_str(), 168.0f, 30.0f, [&] {
-            if (ui::button(selection == row_index ? "Selected" : "Details", selection == row_index ? Kind::Primary : Kind::Secondary, 78.0f)) {
-                selection = row_index;
-                set_pref("minigame.recent", std::to_string(row_index));
-            }
-            ImGui::SameLine(0.0f, px(8));
-            if (ImGui::Checkbox("Fav", &favorite)) set_pref(favorite_key.c_str(), favorite ? "1" : "0");
+        const std::string player_count = game.players == 0 ? "1–4 players" : std::to_string(game.players) + (game.players == 1 ? " player" : " players");
+        std::string detail = category + " · " + player_count;
+        if (category != "Challenge") detail += " · listed in the Free Play checklist";
+        ImGui::PushID(static_cast<int>(i));
+        row(width, title.c_str(), detail.c_str(), 86.0f, 30.0f, [&] {
+            if (ImGui::Checkbox("Favorite", &favorite)) set_pref(favorite_key.c_str(), favorite ? "1" : "0");
         });
         ImGui::PopID();
         ++shown;
@@ -720,13 +725,6 @@ void App::minigames_page(float width) {
     if (shown == 0) row(width, "No matches", "Try a different title, category, or favorites filter.", 0.0f, 0.0f, [] {});
     list.end();
 
-    const int recent = pref_int("minigame.recent", -1);
-    if (selection < 0) selection = recent;
-    if (selection >= 0 && selection < static_cast<int>(std::size(kMinigames))) {
-        ui::gap(12);
-        const Minigame& game = kMinigames[static_cast<size_t>(selection)];
-        row(width, "Selected minigame", (std::string(game.name) + " · " + game.category).c_str(), 0.0f, 0.0f, [] {});
-    }
     ui::gap(10);
-    ui::text("Selecting a title records it as recently viewed; it does not launch the minigame. Safe direct launching requires an engine/game-state hook that this build does not expose yet.", Font::Regular, ui::size::kDetail, p.secondary, width);
+    ui::text("This page is a catalog and favorites list only. Records, scores and direct-launch controls are not available here because the game does not expose reliable result or minigame-selection hooks yet.", Font::Regular, ui::size::kDetail, p.secondary, width);
 }
