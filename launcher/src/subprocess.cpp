@@ -320,7 +320,7 @@ bool Process::start(const std::string& program, const std::vector<std::string>& 
         if (low_priority) {
             setpriority(PRIO_PROCESS, 0, 5);
         }
-        execve(program.c_str(), argv.data(), environ);
+        execvp(program.c_str(), argv.data());
         _exit(127);
     }
     close(ends[1]);
@@ -369,7 +369,7 @@ bool start_detached(const std::string& program, const std::filesystem::path& fol
             _exit(127);
         }
         char* argv[] = {const_cast<char*>(program.c_str()), nullptr};
-        execve(program.c_str(), argv, environ);
+        execvp(program.c_str(), argv);
         _exit(127);
     }
     return true;
@@ -385,7 +385,7 @@ bool start_detached(const std::string& program, const std::vector<std::string>& 
     if (pid == 0) {
         setsid();
         if (!folder.empty() && chdir(folder.c_str()) != 0) _exit(127);
-        execve(program.c_str(), argv.data(), environ);
+        execvp(program.c_str(), argv.data());
         _exit(127);
     }
     return true;
