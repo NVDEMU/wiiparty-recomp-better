@@ -45,7 +45,7 @@ jobs:
         run: cmake --build build/engine --target wp_engine --parallel 2
 
       - name: Configure launcher
-        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DWP_LAUNCHER_BUILD=$GITHUB_SHA
 
       - name: Compile launcher app
         run: cmake --build build/launcher --target launcher --parallel 2
@@ -112,7 +112,7 @@ jobs:
 
       - name: Configure launcher
         shell: msys2 {0}
-        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S launcher -B build/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release -DWP_LAUNCHER_BUILD=$GITHUB_SHA
 
       - name: Compile launcher
         shell: msys2 {0}

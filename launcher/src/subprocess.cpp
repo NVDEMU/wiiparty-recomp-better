@@ -264,6 +264,21 @@ bool start_detached(const std::string& program, const std::filesystem::path& fol
     return true;
 }
 
+bool start_detached(const std::string& program, const std::vector<std::string>& arguments, const std::filesystem::path& folder) {
+    std::wstring line = command_line(program, arguments);
+    std::wstring directory = folder.wstring();
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION info{};
+    if (!CreateProcessW(widen(program).c_str(), line.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr,
+                        directory.empty() ? nullptr : directory.c_str(), &startup, &info)) {
+        return false;
+    }
+    CloseHandle(info.hThread);
+    CloseHandle(info.hProcess);
+    return true;
+}
+
 #else
 
 Process::~Process() {
@@ -355,6 +370,22 @@ bool start_detached(const std::string& program, const std::filesystem::path& fol
         }
         char* argv[] = {const_cast<char*>(program.c_str()), nullptr};
         execve(program.c_str(), argv, environ);
+        _exit(127);
+    }
+    return true;
+}
+
+bool start_detached(const std::string& program, const std::vector<std::string>& arguments, const std::filesystem::path& folder) {
+    std::vector<char*> argv;
+    argv.push_back(const_cast<char*>(program.c_str()));
+    for (const std::string& argument : arguments) argv.push_back(const_cast<char*>(argument.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        setsid();
+        if (!folder.empty() && chdir(folder.c_str()) != 0) _exit(127);
+        execve(program.c_str(), argv.data(), environ);
         _exit(127);
     }
     return true;

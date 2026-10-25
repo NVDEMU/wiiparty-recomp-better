@@ -47,7 +47,9 @@ def main():
     if sys.platform != "linux":
         print("run this on Linux", file=sys.stderr)
         return 1
-    subprocess.run(["cmake", "-S", str(root / "launcher"), "-B", str(arguments.build), "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-UWP_LAUNCHER_VERSION", "-UWP_LAUNCHER_BUILD"], check=True)
+    build_id = os.environ.get("GITHUB_SHA", "development")
+    subprocess.run(["cmake", "-S", str(root / "launcher"), "-B", str(arguments.build), "-G", "Ninja",
+                    "-DCMAKE_BUILD_TYPE=Release", "-UWP_LAUNCHER_VERSION", f"-DWP_LAUNCHER_BUILD={build_id}"], check=True)
     subprocess.run(["cmake", "--build", str(arguments.build)], check=True)
     downloads = Path(tempfile.gettempdir()) / "wiipartyrecomp-appimage"
     tool = fetch(TOOL_URL, TOOL_SHA256, downloads)
