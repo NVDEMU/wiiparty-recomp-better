@@ -220,7 +220,84 @@ Requirements:
 
 ---
 
-## 6. Implementation priorities
+## 6. Selected launcher and quality-of-life backlog
+
+The following features are approved for planning. They are not implemented merely by being listed here; mark items complete only after the functionality exists and has been tested.
+
+### 6.1. Controller Calibration Lab
+
+Goal: let players check and configure controllers before starting a party.
+
+Requirements:
+- Show live button presses, D-pad state, stick axes and trigger values for each connected gamepad.
+- Identify the selected controller and assign it explicitly to player 1, 2, 3 or 4.
+- Provide calibration for stick dead zones and sensitivity where the backend exposes the necessary data.
+- Provide a motion/input test for supported Wii Remotes, including pointer position and available motion readings.
+- Offer safe tests for rumble and Wii Remote speaker output when supported by the connected device.
+- Clearly distinguish unsupported hardware features from faults, and let users reset calibration to defaults.
+- Do not change the game's existing bindings unless the user applies a change.
+
+### 6.2. Player Profiles and Statistics
+
+Goal: retain each local player's identity and history across sessions.
+
+Requirements:
+- Let users create, rename and delete local profiles and link each to a Mii where possible.
+- Store controller preferences per profile.
+- Track party sessions, wins, placements, played minigames and personal records where reliable events can be detected.
+- Provide an overview of recent sessions and head-to-head results.
+- Store data locally, validate it on load, and make export/backup possible.
+- Do not claim unsupported in-game statistics; label records unavailable when the game does not expose the event.
+
+### 6.3. Party Setup Wizard
+
+Goal: get a group ready to play without navigating several separate settings pages.
+
+Requirements:
+- Guide users through player count, player profiles/Miis, controller assignment and input tests.
+- Flag missing or duplicate assignments and offer a quick way back to controller setup.
+- Save named local presets for common groups and controller configurations.
+- Show a concise ready-check before launching the game.
+- Build on existing controller and profile systems rather than duplicating their settings.
+- Treat automated game-mode/minigame selection as a later integration step if the original game's selection flow cannot yet be driven safely.
+
+### 6.4. Minigame Library
+
+Goal: make the game's minigames easy to browse and organize from the PC launcher.
+
+Requirements:
+- Provide a searchable catalog of known minigames, with name, player count and category where verified.
+- Support favorites, recently played entries, personal ratings and user-created collections.
+- Filter by supported player count and game type.
+- Link each entry to known in-game instructions or available documentation.
+- Make direct launching a separate capability that requires reliable game hooks; do not show a working Launch button until it can actually start the chosen minigame.
+
+### 6.5. Living-Room Mode
+
+Goal: make the launcher comfortable to use from a couch on a TV.
+
+Requirements:
+- Provide a full-screen, large-text interface with high-contrast focus indicators and generous spacing.
+- Support navigation and activation using a connected gamepad, with keyboard fallback.
+- Make profile selection, controller setup, library browsing, settings and Play reachable without a mouse.
+- Support returning to the launcher cleanly after the game exits.
+- Ensure the mode works at common TV resolutions and does not require a specific display scaling setting.
+
+### 6.6. Graphics Presets and Automatic Optimization
+
+Goal: make the existing graphics settings easier to tune while keeping performance predictable.
+
+Requirements:
+- Add Performance, Balanced and Quality presets that set existing graphics options together.
+- Preserve manual settings and clearly indicate when the user customizes a preset.
+- Use a repeatable short benchmark or measured session data to recommend internal resolution and settings.
+- Provide a one-click restore-to-recommended and restore-to-default action.
+- Explain the trade-offs and avoid changing settings while gameplay is active unless they are safe to apply live.
+- Test each supported option on both the Direct3D and OpenGL renderers; do not expose options that are not implemented on a platform.
+
+---
+
+## 7. Implementation priorities
 
 ### Priority 1: blockers and foundations
 
@@ -237,6 +314,7 @@ Requirements:
 - [ ] Implement profiles and save slots.
 - [ ] Add dialog speed-up and fast board mode.
 - [ ] Add resource preloading.
+- [ ] Build the Controller Calibration Lab and Party Setup Wizard.
 
 ### Priority 3: graphics
 
@@ -244,6 +322,7 @@ Requirements:
 - [ ] Separate rendering and logic to support high refresh rates.
 - [x] Add HD texture support.
 - [ ] Validate the 2D interface at different resolutions.
+- [ ] Implement graphics presets with benchmark-backed recommendations.
 
 ### Priority 4: extended features
 
@@ -252,10 +331,8 @@ Requirements:
 - [ ] Design the online mode interface.
 - [ ] Define and validate the network architecture.
 - [ ] Implement the online mode in phases.
-
----
-
-## 7. General quality criteria
+- [ ] Add player statistics, the Minigame Library and Living-Room Mode.
+## 8. General quality criteria
 
 - Keep the visual and audio identity of Wii Party.
 - Do not change the original rules unless an option says so explicitly.
