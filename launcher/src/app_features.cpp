@@ -9,6 +9,7 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -310,7 +311,33 @@ void App::calibration_section(float width) {
             inset_separator(width);
             const bool gyro = SDL_GamepadHasSensor(pad, SDL_SENSOR_GYRO);
             const bool accel = SDL_GamepadHasSensor(pad, SDL_SENSOR_ACCEL);
-            row(width, "Motion sensors", gyro || accel ? "Gyroscope and/or accelerometer supported by this device." : "No motion sensors exposed by this gamepad; ordinary controls still work.", 0.0f, 0.0f, [] {});
+            bool gyro_read = false;
+            bool accel_read = false;
+            float gyro_data[3] = {};
+            float accel_data[3] = {};
+            if (gyro) {
+                SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_GYRO, true);
+                gyro_read = SDL_GetGamepadSensorData(pad, SDL_SENSOR_GYRO, gyro_data, 3);
+            }
+            if (accel) {
+                SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_ACCEL, true);
+                accel_read = SDL_GetGamepadSensorData(pad, SDL_SENSOR_ACCEL, accel_data, 3);
+            }
+            char sensor_buffer[160]{};
+            if (gyro_read && accel_read) {
+                std::snprintf(sensor_buffer, sizeof(sensor_buffer), "Gyro %.2f / %.2f / %.2f · Accel %.2f / %.2f / %.2f",
+                              static_cast<double>(gyro_data[0]), static_cast<double>(gyro_data[1]), static_cast<double>(gyro_data[2]),
+                              static_cast<double>(accel_data[0]), static_cast<double>(accel_data[1]), static_cast<double>(accel_data[2]));
+            } else if (gyro || accel) {
+                std::snprintf(sensor_buffer, sizeof(sensor_buffer), "%s%s%s",
+                              gyro ? (gyro_read ? "Gyroscope data available" : "Gyroscope supported, waiting for data") : "",
+                              gyro && accel ? " · " : "",
+                              accel ? (accel_read ? "Accelerometer data available" : "Accelerometer supported, waiting for data") : "");
+            } else {
+                std::snprintf(sensor_buffer, sizeof(sensor_buffer), "%s",
+                              "No motion sensors exposed by this gamepad; ordinary controls still work.");
+            }
+            row(width, "Motion sensor readings", sensor_buffer, 0.0f, 0.0f, [] {});
             row(width, "Rumble test", "Short, moderate vibration pulse; only available if the controller supports rumble.", 120.0f, 36.0f, [&] {
                 if (ui::button("Test rumble", Kind::Secondary, 120.0f)) SDL_RumbleGamepad(pad, 0x8000, 0x8000, 400);
             });
