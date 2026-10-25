@@ -62,8 +62,11 @@ void ensure_profiles() {
         if (pref(key.c_str()).empty()) set_pref(key.c_str(), "Player " + std::to_string(i + 1));
     }
     if (pref("profiles.active").empty()) set_pref("profiles.active", "0");
+    const std::string stored_active = pref("profiles.active");
     int active = std::clamp(pref_int("profiles.active", 0), 0, count - 1);
-    set_pref("profiles.active", std::to_string(active));
+    // Do not rewrite launcher.ini every frame; persist only if clamping corrected
+    // a stale or invalid active-profile index.
+    if (stored_active != std::to_string(active)) set_pref("profiles.active", std::to_string(active));
     if (pref("party.players").empty()) set_pref("party.players", "4");
 }
 
