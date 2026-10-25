@@ -96,15 +96,15 @@ float setting_float(const char* key, float fallback, float low, float high) {
 }
 
 float stick_threshold() {
-    return setting_float("input.button_threshold", stick_threshold(), 0.10f, 0.95f);
+    return setting_float("input.button_threshold", 0.50f, 0.10f, 0.95f);
 }
 
 float trigger_threshold() {
-    return setting_float("input.button_threshold", trigger_threshold(), 0.10f, 0.95f);
+    return setting_float("input.button_threshold", 0.50f, 0.10f, 0.95f);
 }
 
 float stick_deadzone() {
-    return setting_float("input.stick_deadzone", kStickDeadZone, 0.01f, 0.50f);
+    return setting_float("input.stick_deadzone", 0.15f, 0.01f, 0.50f);
 }
 
 std::vector<std::string> device_keys(const SDL_JoystickID* ids, int count) {
