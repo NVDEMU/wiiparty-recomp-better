@@ -66,7 +66,7 @@ The launcher downloads any missing build tools from their official sites and che
 
 The AppImage targets x86_64 and needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later); the game needs OpenGL 4.1. CI builds the package, but real-machine gameplay on Linux still needs tester validation.
 
-The build runs once, at low priority, with as many parallel jobs as your memory allows. Updating to a newer launcher rebuilds the game and keeps your saves and settings.
+The build runs once, at low priority, with as many parallel jobs as your memory allows. The launcher checks the project's GitHub Nightly release and offers in-app updates. It verifies the downloaded build's SHA-256 before replacing the launcher; on macOS it stages and replaces the full .app bundle with a helper after the running app exits. Your installed disc data, saves, and settings are kept. A launcher update may still trigger a local game-runtime rebuild when the code generation or runtime has changed, but you do not have to manually download and reinstall every launcher build.
 
 ### macOS (experimental)
 
