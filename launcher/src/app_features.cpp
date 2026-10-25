@@ -641,7 +641,8 @@ void App::party_page(float width) {
     presets.end();
 
     ui::gap(18);
-    row(width, "Ready check", std::to_string(pad_count) + " SDL gamepad(s) currently detected. Pair real Wii Remotes separately and confirm player controls before starting.", 0.0f, 0.0f, [] {});
+    const std::string ready_summary = std::to_string(pad_count) + " SDL gamepad(s) currently detected. Pair real Wii Remotes separately and confirm player controls before starting.";
+    row(width, "Ready check", ready_summary.c_str(), 0.0f, 0.0f, [] {});
     if (project_.built() && project_.extracted()) {
         if (ui::button("Launch Wii Party", Kind::Primary, 180.0f)) play();
     } else {
