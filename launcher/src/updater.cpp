@@ -8,6 +8,8 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <chrono>
+#include <system_error>
 
 #include "sha256.h"
 #include "subprocess.h"
@@ -18,15 +20,24 @@
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #else
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 namespace {
 
-constexpr const char* kReleasesUrl = "https://api.github.com/repos/arelkair/wiiparty-recomp/releases?per_page=30";
+constexpr const char* kReleasesUrl = "https://api.github.com/repos/NVDEMU/wiiparty-recomp-better/releases?per_page=30";
+constexpr const char* kNightlyRefUrl = "https://api.github.com/repos/NVDEMU/wiiparty-recomp-better/git/ref/tags/Nightly";
 #ifdef _WIN32
 constexpr const char* kAssetName = "wiipartyrecomp-launcher.exe";
+#elif defined(__APPLE__)
+#if defined(__arm64__) || defined(__aarch64__)
+constexpr const char* kAssetName = "WiiPartyRecomp-macos-arm64.dmg";
+#else
+constexpr const char* kAssetName = "WiiPartyRecomp-macos-x86_64.dmg";
+#endif
 #else
 constexpr const char* kAssetName = "wiipartyrecomp-launcher-x86_64.AppImage";
 #endif
@@ -353,10 +364,17 @@ bool fetch_text(const std::string& url, std::string& body, std::string& error) {
 
 bool curl(const std::vector<std::string>& arguments, std::string& output, std::string& error) {
     std::string program = find_program("curl");
-    if (environment_value("APPIMAGE").empty() || program.empty()) {
-        error = "not supported";
+#ifdef __APPLE__
+    if (program.empty()) {
+        error = "curl is not available";
         return false;
     }
+#else
+    if (environment_value("APPIMAGE").empty() || program.empty()) {
+        error = "updates are supported only for the installed AppImage";
+        return false;
+    }
+#endif
     std::vector<std::string> all = {"-L", "--fail", "--silent", "--show-error", "--connect-timeout", "10"};
     all.insert(all.end(), arguments.begin(), arguments.end());
     Process process;
@@ -414,45 +432,94 @@ void read_summary(const std::string& body, Release& release) {
 
 bool latest_release(Release& release, Release& current, const std::string& current_version, std::string& error) {
     std::string body;
-    if (!fetch_text(kReleasesUrl, body, error)) {
-        return false;
-    }
+    if (!fetch_text(kReleasesUrl, body, error)) return false;
     Json list;
     if (!Parser(body).parse(list) || list.kind != Json::Kind::Array) {
-        error = "unexpected reply";
+        error = "unexpected GitHub release response";
         return false;
     }
-    bool found = false;
+
+    Release nightly;
+    Release best_stable;
+    bool has_nightly = false;
+    bool has_stable = false;
     for (const Json& entry : list.items) {
-        if (entry["draft"].flag) {
-            continue;
-        }
+        if (entry["draft"].flag) continue;
         std::string tag = entry["tag_name"].text;
-        std::string version = tag.rfind('v', 0) == 0 ? tag.substr(1) : tag;
-        if (version == current_version) {
-            current.version = version;
-            current.page = entry["html_url"].text;
-            read_summary(entry["body"].text, current);
-        }
-        if (found && !newer_version(tag, release.version)) {
-            continue;
-        }
+        if (tag.empty()) continue;
+        Release candidate;
+        bool has_asset = false;
         for (const Json& asset : entry["assets"].items) {
+            if (asset["name"].text != kAssetName) continue;
             std::string digest = asset["digest"].text;
-            if (asset["name"].text == kAssetName && digest.rfind("sha256:", 0) == 0) {
-                release.version = tag.rfind('v', 0) == 0 ? tag.substr(1) : tag;
-                release.url = asset["browser_download_url"].text;
-                release.sha256 = digest.substr(7);
-                release.page = entry["html_url"].text;
-                read_summary(entry["body"].text, release);
-                found = true;
-            }
+            if (digest.rfind("sha256:", 0) != 0 || asset["browser_download_url"].text.empty()) continue;
+            candidate.version = tag.rfind('v', 0) == 0 ? tag.substr(1) : tag;
+            candidate.url = asset["browser_download_url"].text;
+            candidate.sha256 = digest.substr(7);
+            candidate.page = entry["html_url"].text;
+            read_summary(entry["body"].text, candidate);
+            has_asset = true;
+            break;
+        }
+        if (!has_asset) continue;
+        if (tag == "Nightly") {
+            nightly = std::move(candidate);
+            has_nightly = true;
+            break;
+        }
+        if (!has_stable || newer_version(candidate.version, best_stable.version)) {
+            best_stable = std::move(candidate);
+            has_stable = true;
         }
     }
-    if (!found) {
-        error = "no release";
+
+    if (has_nightly) {
+        std::string reference_body;
+        std::string reference_error;
+        if (!fetch_text(kNightlyRefUrl, reference_body, reference_error)) {
+            error = "could not identify the latest Nightly commit: " + reference_error;
+            return false;
+        }
+        Json reference;
+        if (!Parser(reference_body).parse(reference) || reference["object"]["sha"].text.empty()) {
+            error = "GitHub did not return the Nightly commit ID";
+            return false;
+        }
+        nightly.build = reference["object"]["sha"].text;
+        release = std::move(nightly);
+    } else if (has_stable) {
+        release = std::move(best_stable);
+    } else {
+        error = "no compatible launcher asset with a SHA-256 digest was found";
+        return false;
     }
-    return found;
+
+    current.version = current_version;
+    current.build = WP_LAUNCHER_BUILD;
+    if (release.version == current_version) {
+        current.page = release.page;
+    }
+    return true;
+}
+
+bool update_available(const Release& candidate, const std::string& current_version) {
+    if (candidate.version == "Nightly") {
+        return !candidate.build.empty() && candidate.build != WP_LAUNCHER_BUILD;
+    }
+    return newer_version(candidate.version, current_version);
+}
+
+std::filesystem::path update_download_path() {
+#ifdef __APPLE__
+    std::error_code error;
+    std::filesystem::path temp = std::filesystem::temp_directory_path(error);
+    if (error) temp = std::filesystem::current_path(error);
+    return temp / ("wiipartyrecomp-update-" + std::to_string(static_cast<long long>(getpid())) + ".dmg");
+#else
+    std::filesystem::path target = launcher_path();
+    target += ".download";
+    return target;
+#endif
 }
 
 bool download(const std::string& url, const std::filesystem::path& target, std::string& error) {
@@ -503,30 +570,210 @@ std::filesystem::path launcher_path() {
 #endif
 }
 
+namespace {
+
+bool run_update_command(const std::string& program, const std::vector<std::string>& arguments, const std::filesystem::path& folder,
+                        std::string& error) {
+    Process process;
+    if (!process.start(program, arguments, folder, false, error)) return false;
+    std::string output;
+    char buffer[4096];
+    while (size_t count = process.read(buffer, sizeof(buffer))) output.append(buffer, count);
+    int status = process.wait();
+    if (status != 0) {
+        error = output.empty() ? (program + " exited with code " + std::to_string(status)) : output.substr(0, output.find_first_of("\r\n"));
+        return false;
+    }
+    return true;
+}
+
+#ifdef __APPLE__
+std::string shell_quote(const std::string& value) {
+    std::string result = "'";
+    for (char c : value) {
+        if (c == '\'') result += "'\\''";
+        else result += c;
+    }
+    result += "'";
+    return result;
+}
+
+std::filesystem::path app_bundle_path(const std::filesystem::path& executable) {
+    std::filesystem::path path = executable.parent_path();
+    while (!path.empty() && path != path.root_path()) {
+        if (path.extension() == ".app") return path;
+        path = path.parent_path();
+    }
+    return {};
+}
+#endif
+
+}
+
 bool replace_launcher(const std::filesystem::path& downloaded, std::string& error) {
-    std::filesystem::path current = launcher_path();
-    std::filesystem::path old = current;
+    namespace fs = std::filesystem;
+    fs::path current = launcher_path();
+    if (current.empty()) {
+        error = "could not locate the running launcher";
+        return false;
+    }
+#ifdef _WIN32
+    fs::path script = fs::temp_directory_path() / ("wiipartyrecomp-update-" + std::to_string(GetCurrentProcessId()) + ".ps1");
+    std::ofstream out(script, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        error = "could not create the updater helper script";
+        return false;
+    }
+    out << R"PS($ErrorActionPreference = "Stop"
+param([string]$Executable, [string]$Downloaded, [int]$ParentPid)
+for ($i = 0; $i -lt 60; $i++) {
+    if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 500
+}
+$backup = "$Executable.old"
+for ($i = 0; $i -lt 20; $i++) {
+    try {
+        if (Test-Path $backup) { Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue }
+        Move-Item -LiteralPath $Executable -Destination $backup -Force
+        Move-Item -LiteralPath $Downloaded -Destination $Executable -Force
+        if ((Test-Path $Executable) -and (Get-Item -LiteralPath $Executable).Length -gt 100000) {
+            Start-Process -FilePath $Executable
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+            exit 0
+        }
+    } catch {}
+    if ((Test-Path $backup) -and -not (Test-Path $Executable)) {
+        Move-Item -LiteralPath $backup -Destination $Executable -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 1
+}
+if (Test-Path $Executable) { Start-Process -FilePath $Executable }
+)PS";
+    out.close();
+    if (!out) {
+        error = "could not write the updater helper script";
+        return false;
+    }
+    bool launched = start_detached("powershell.exe",
+        {"-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", utf8_of(script),
+         "-Executable", utf8_of(current), "-Downloaded", utf8_of(downloaded), "-ParentPid", std::to_string(GetCurrentProcessId())},
+        current.parent_path());
+    if (!launched) {
+        fs::remove(script);
+        error = "could not start the Windows update helper";
+        return false;
+    }
+    return true;
+#elif defined(__APPLE__)
+    fs::path app = app_bundle_path(current);
+    if (app.empty() || !fs::is_directory(app)) {
+        error = "could not locate the running .app bundle; launch the app from Finder or Applications";
+        return false;
+    }
+    fs::path work = fs::temp_directory_path() / ("wiipartyrecomp-update-" + std::to_string(static_cast<long long>(getpid())));
+    fs::path mount = work / "mount";
+    fs::path staged = work / "Wii Party Recomp.new.app";
+    std::error_code ec;
+    fs::remove_all(work, ec);
+    ec.clear();
+    fs::create_directories(mount, ec);
+    if (ec) {
+        error = "could not create the update staging directory: " + ec.message();
+        return false;
+    }
+    if (!run_update_command("/usr/bin/hdiutil", {"attach", "-nobrowse", "-readonly", "-mountpoint", utf8_of(mount), utf8_of(downloaded)}, work, error)) {
+        fs::remove_all(work, ec);
+        return false;
+    }
+    fs::path source_app;
+    for (const auto& entry : fs::directory_iterator(mount, ec)) {
+        if (entry.is_directory(ec) && entry.path().extension() == ".app") {
+            source_app = entry.path();
+            break;
+        }
+    }
+    if (source_app.empty()) {
+        std::string ignored;
+        run_update_command("/usr/bin/hdiutil", {"detach", utf8_of(mount), "-force"}, work, ignored);
+        fs::remove_all(work, ec);
+        error = "the downloaded DMG did not contain a .app bundle";
+        return false;
+    }
+    if (!run_update_command("/usr/bin/ditto", {utf8_of(source_app), utf8_of(staged)}, work, error)) {
+        std::string ignored;
+        run_update_command("/usr/bin/hdiutil", {"detach", utf8_of(mount), "-force"}, work, ignored);
+        fs::remove_all(work, ec);
+        return false;
+    }
+    std::string ignored;
+    run_update_command("/usr/bin/hdiutil", {"detach", utf8_of(mount), "-force"}, work, ignored);
+    fs::remove(downloaded, ec);
+
+    fs::path helper = work / "install-update.sh";
+    fs::path old_app = app;
+    old_app += ".old-update";
+    std::ofstream script(helper, std::ios::binary | std::ios::trunc);
+    if (!script) {
+        fs::remove_all(work, ec);
+        error = "could not create the macOS update helper";
+        return false;
+    }
+    script << "#!/bin/sh\nset -u\n";
+    script << "APP=" << shell_quote(utf8_of(app)) << "\n";
+    script << "NEW=" << shell_quote(utf8_of(staged)) << "\n";
+    script << "OLD=" << shell_quote(utf8_of(old_app)) << "\n";
+    script << "WORK=" << shell_quote(utf8_of(work)) << "\n";
+    script << "PARENT=" << static_cast<long long>(getpid()) << "\n";
+    script << "while kill -0 \"$PARENT\" 2>/dev/null; do sleep 1; done\n";
+    script << "if [ ! -d \"$NEW\" ]; then /usr/bin/open \"$APP\"; exit 1; fi\n";
+    script << "if ! /bin/mv \"$APP\" \"$OLD\"; then /usr/bin/open \"$APP\"; exit 1; fi\n";
+    script << "if /usr/bin/ditto \"$NEW\" \"$APP\"; then\n";
+    script << "  /bin/rm -rf \"$OLD\"\n";
+    script << "  /usr/bin/open \"$APP\"\n";
+    script << "  /bin/rm -rf \"$WORK\"\n";
+    script << "else\n";
+    script << "  /bin/rm -rf \"$APP\"\n";
+    script << "  /bin/mv \"$OLD\" \"$APP\"\n";
+    script << "  /usr/bin/open \"$APP\"\n";
+    script << "fi\n";
+    script.close();
+    fs::permissions(helper, fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::replace, ec);
+    if (!script || ec) {
+        fs::remove_all(work, ec);
+        error = "could not prepare the macOS update helper";
+        return false;
+    }
+    if (!start_detached("/bin/sh", {utf8_of(helper)}, work)) {
+        fs::remove_all(work, ec);
+        error = "could not start the macOS update helper";
+        return false;
+    }
+    return true;
+#else
+    fs::path old = current;
     old += ".old";
     std::error_code code;
-    std::filesystem::remove(old, code);
-    std::filesystem::rename(current, old, code);
+    fs::remove(old, code);
+    code.clear();
+    fs::rename(current, old, code);
     if (code) {
         error = code.message();
         return false;
     }
-    std::filesystem::rename(downloaded, current, code);
+    fs::rename(downloaded, current, code);
     if (code) {
         std::error_code ignored;
-        std::filesystem::rename(old, current, ignored);
+        fs::rename(old, current, ignored);
         error = code.message();
         return false;
     }
-    std::error_code ignored;
-    if (!start_detached(utf8_of(current), std::filesystem::current_path(ignored))) {
+    if (!start_detached(utf8_of(current), current.parent_path())) {
         error = "restart failed";
         return false;
     }
     return true;
+#endif
 }
 
 void remove_old_launcher() {
