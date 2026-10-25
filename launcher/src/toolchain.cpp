@@ -141,7 +141,13 @@ std::vector<ToolStatus> Toolchain::inspect() const {
         {kPython, "--version", R"(Python (\d+)\.(\d+))", 3, 11},
         {"cmake", "--version", R"(cmake version (\d+)\.(\d+))", 3, 20},
         {"ninja", "--version", R"((\d+)\.(\d+))", 1, 10},
+#ifdef __APPLE__
+        // Apple Clang rejects -dumpfullversion when invoked without an input file.
+        // Parse the installed compiler's version banner instead.
+        {kCompiler, "--version", R"(clang version (\d+)\.(\d+))", kCompilerMajor, 0},
+#else
         {kCompiler, "-dumpfullversion", R"((\d+)\.(\d+))", kCompilerMajor, 0},
+#endif
     };
     std::vector<ToolStatus> tools;
     for (const Requirement& requirement : requirements) {
