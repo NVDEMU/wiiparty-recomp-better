@@ -396,7 +396,9 @@ void App::apply_theme() {
     } else {
         io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
     }
-    ui::apply_style(SDL_GetWindowDisplayScale(window_) * (living_room ? 1.18f : 1.0f));
+    // ImGui coordinates use SDL logical window units; framebuffer scaling is handled by SDL.
+    // Applying display scale here again made the default UI text oversized on HiDPI displays.
+    ui::apply_style(living_room ? 1.18f : 1.0f);
 #ifdef _WIN32
     HWND hwnd = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(window_), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
     if (hwnd) {
