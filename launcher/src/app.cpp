@@ -385,7 +385,18 @@ void App::use_root(const std::filesystem::path& root) {
 
 void App::apply_theme() {
     ui::set_dark(SDL_GetSystemTheme() == SDL_SYSTEM_THEME_DARK);
-    ui::apply_style(SDL_GetWindowDisplayScale(window_));
+    const bool living_room = pref("living_room") == "1";
+    const bool fullscreen = (SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN) != 0;
+    if (fullscreen != living_room) {
+        SDL_SetWindowFullscreen(window_, living_room);
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    if (living_room) {
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    } else {
+        io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+    }
+    ui::apply_style(SDL_GetWindowDisplayScale(window_) * (living_room ? 1.18f : 1.0f));
 #ifdef _WIN32
     HWND hwnd = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(window_), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
     if (hwnd) {
@@ -402,6 +413,9 @@ void App::store(const std::string& key, const std::string& text) {
     std::error_code error;
     std::filesystem::create_directories(project_.game_folder(), error);
     wp::settings::store(key.c_str(), text);
+    if (key.rfind("video.", 0) == 0 && !applying_graphics_preset_) {
+        set_pref("graphics.preset", "custom");
+    }
     if (key == "system.interface_language") {
         apply_interface_language(text);
     }
@@ -616,7 +630,8 @@ void App::sidebar(float height) {
     ImGui::SetCursorScreenPos(origin + ImVec2(px(76), px(51)));
     ui::text("Recomp", Font::Regular, ui::size::kDetail, p.secondary);
     const Texts& t = texts();
-    const char* names[] = {t.game, t.settings, t.saves, t.controls, t.page_textures, wp::ui::label("mii.title"), t.page_captures, t.page_system, t.licenses};
+    const char* names[] = {t.game, t.settings, t.saves, t.controls, t.page_textures, wp::ui::label("mii.title"), t.page_captures, t.page_system, t.licenses,
+                           "Party Setup", "Minigame Library"};
     float top = px(100);
     float step = px(36) + px(2);
     ImGuiID indicator = ImHashStr("nav-indicator");
@@ -643,7 +658,7 @@ void App::page(float width, float height) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(px(kPagePaddingX), px(kPagePaddingTop) + std::round((1.0f - shown) * px(10))));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ui::palette().background);
     bool scrolls = page_ == Page::Settings || page_ == Page::Saves || page_ == Page::Controls || page_ == Page::Textures || page_ == Page::Miis || page_ == Page::Captures ||
-                   page_ == Page::System;
+                   page_ == Page::System || page_ == Page::Party || page_ == Page::Minigames;
     ImGui::BeginChild(static_cast<int>(page_) + 100, ImVec2(width, height), ImGuiChildFlags_AlwaysUseWindowPadding,
                       scrolls ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     float content = std::min(width - px(kPagePaddingX) * 2, px(kContentMaxWidth));
@@ -675,6 +690,12 @@ void App::page(float width, float height) {
         break;
     case Page::Licenses:
         licenses_page(content, available);
+        break;
+    case Page::Party:
+        party_page(content);
+        break;
+    case Page::Minigames:
+        minigames_page(content);
         break;
     case Page::Count:
         break;
@@ -964,6 +985,22 @@ void App::settings_page(float width) {
     const ui::Palette& p = ui::palette();
     const Texts& t = texts();
     heading(t.settings, t.settings_intro, width);
+
+    {
+        Card living(width);
+        bool on = pref("living_room") == "1";
+        row(width, "Living-Room Mode", "Larger launcher controls, full-screen layout, and gamepad-friendly navigation. The launcher stays open when you launch the game.", 42.0f, 24.0f, [&] {
+            if (ui::toggle("living-room-mode", on)) {
+                set_pref("living_room", on ? "0" : "1");
+                apply_theme();
+            }
+        });
+        living.end();
+    }
+    ui::gap(18);
+    graphics_presets(width);
+    ui::gap(24);
+
     std::vector<std::string> keys = wp::settings::keys();
     size_t i = 0;
     while (i < keys.size()) {
@@ -1332,6 +1369,7 @@ void App::controls_page(float width) {
     }
     ImGui::SetCursorScreenPos(after);
     tester_section(width);
+    calibration_section(width);
     gamepads_section(width);
     pad_map_section(width);
     wiimotes_section(width);
@@ -2275,6 +2313,22 @@ void App::play() {
         return;
     }
     if (!building) {
-        quit_ = true;
+        int count = std::atoi(pref("profiles.count").c_str());
+        if (count < 1) {
+            count = 1;
+            set_pref("profiles.count", "1");
+            if (pref("profiles.name.0").empty()) set_pref("profiles.name.0", "Player 1");
+        }
+        int active = std::clamp(std::atoi(pref("profiles.active").c_str()), 0, count - 1);
+        std::string sessions_key = "profiles.sessions." + std::to_string(active);
+        int sessions = std::max(0, std::atoi(pref(sessions_key.c_str()).c_str()));
+        set_pref(sessions_key.c_str(), std::to_string(sessions + 1));
+        std::string last_key = "profiles.last_played." + std::to_string(active);
+        set_pref(last_key.c_str(), std::to_string(static_cast<long long>(std::time(nullptr))));
+        if (pref("living_room") == "1") {
+            result_ = "Game launched. Living-Room Mode keeps the launcher available to return to after playing.";
+        } else {
+            quit_ = true;
+        }
     }
 }

@@ -51,7 +51,7 @@ struct Capture {
     bool selected = false;
 };
 
-enum class Page { Game, Settings, Saves, Controls, Textures, Miis, Captures, System, Licenses, Count };
+enum class Page { Game, Settings, Saves, Controls, Textures, Miis, Captures, System, Licenses, Party, Minigames, Count };
 
 class App {
 public:
@@ -83,6 +83,11 @@ private:
     void settings_page(float width);
     void saves_page(float width);
     void controls_page(float width);
+    void party_page(float width);
+    void minigames_page(float width);
+    void profiles_section(float width);
+    void calibration_section(float width);
+    void graphics_presets(float width);
     void licenses_page(float width, float height);
     void textures_page(float width);
     void miis_page(float width);
@@ -236,6 +241,7 @@ private:
     bool uninstall_keep_ = true;
     std::string picked_dolphin_;
     std::map<SDL_JoystickID, SDL_Gamepad*> tester_pads_;
+    bool applying_graphics_preset_ = false;
 };
 
 void wake_main_loop();

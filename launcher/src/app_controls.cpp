@@ -1,6 +1,8 @@
 #include "app.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include "keys.h"
 #include "layout.h"
@@ -11,9 +13,6 @@
 #include "wp/ui_text.h"
 
 namespace {
-
-constexpr float kStickThreshold = 0.5f;
-constexpr float kTriggerThreshold = 0.5f;
 
 enum class PadStyle { Xbox, Nintendo, PlayStation };
 
@@ -151,19 +150,21 @@ uint32_t App::keyboard_buttons() {
 }
 
 uint32_t App::gamepad_buttons(SDL_Gamepad* pad) {
+    const std::string threshold_text = value("input.button_threshold");
+    const float threshold = std::clamp(std::strtof(threshold_text.c_str(), nullptr), 0.10f, 0.95f);
     wp::padmap::Pressed pressed;
     pressed.nintendo_layout = SDL_GetGamepadButtonLabel(pad, SDL_GAMEPAD_BUTTON_SOUTH) == SDL_GAMEPAD_BUTTON_LABEL_B;
     for (int i = 0; i < wp::padmap::kLeftTrigger; i++) {
         pressed.held[i] = SDL_GetGamepadButton(pad, static_cast<SDL_GamepadButton>(i));
     }
-    pressed.held[wp::padmap::kLeftTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f > kTriggerThreshold;
-    pressed.held[wp::padmap::kRightTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f > kTriggerThreshold;
+    pressed.held[wp::padmap::kLeftTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f > threshold;
+    pressed.held[wp::padmap::kRightTrigger] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f > threshold;
     float right_x = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTX) / 32767.0f;
     float right_y = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTY) / 32767.0f;
-    pressed.held[wp::padmap::kRightStickUp] = right_y < -kStickThreshold;
-    pressed.held[wp::padmap::kRightStickDown] = right_y > kStickThreshold;
-    pressed.held[wp::padmap::kRightStickLeft] = right_x < -kStickThreshold;
-    pressed.held[wp::padmap::kRightStickRight] = right_x > kStickThreshold;
+    pressed.held[wp::padmap::kRightStickUp] = right_y < -threshold;
+    pressed.held[wp::padmap::kRightStickDown] = right_y > threshold;
+    pressed.held[wp::padmap::kRightStickLeft] = right_x < -threshold;
+    pressed.held[wp::padmap::kRightStickRight] = right_x > threshold;
     wp::padmap::Mapping mapping{};
     for (size_t i = 0; i < wp::padmap::kActionCount; i++) {
         mapping[i] = wp::padmap::physical_from_name(value(wp::padmap::setting_key(i)));
@@ -171,16 +172,16 @@ uint32_t App::gamepad_buttons(SDL_Gamepad* pad) {
     uint32_t buttons = wp::padmap::buttons(pressed, false, mapping);
     float x = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTX) / 32767.0f;
     float y = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTY) / 32767.0f;
-    if (pressed.held[wp::padmap::kDpadLeft] || x < -kStickThreshold) {
+    if (pressed.held[wp::padmap::kDpadLeft] || x < -threshold) {
         buttons |= wp::input::kButtonLeft;
     }
-    if (pressed.held[wp::padmap::kDpadRight] || x > kStickThreshold) {
+    if (pressed.held[wp::padmap::kDpadRight] || x > threshold) {
         buttons |= wp::input::kButtonRight;
     }
-    if (pressed.held[wp::padmap::kDpadUp] || y < -kStickThreshold) {
+    if (pressed.held[wp::padmap::kDpadUp] || y < -threshold) {
         buttons |= wp::input::kButtonUp;
     }
-    if (pressed.held[wp::padmap::kDpadDown] || y > kStickThreshold) {
+    if (pressed.held[wp::padmap::kDpadDown] || y > threshold) {
         buttons |= wp::input::kButtonDown;
     }
     return buttons;

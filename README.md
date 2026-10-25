@@ -113,20 +113,20 @@ Every key can be changed on the launcher's **Controls** page or in `games/wiipar
 
 The project's scope is the original game, faithful and optimized.
 
-### Planned features
+### Feature status and roadmap
 
-Detailed requirements and priorities are tracked in [the quality-of-life feature roadmap](docs/FEATURES_QOL.md).
+The first six selected launcher features now have working implementations; each row notes any remaining game-side integration needed. Detailed requirements and priorities are tracked in [the quality-of-life feature roadmap](docs/FEATURES_QOL.md).
 
-| Feature | Notes |
+| Feature | Current implementation |
 | :--- | :--- |
-| **Controller Calibration Lab** | Live controller input, assignment, supported motion/pointer checks, and calibration tools. |
-| **Player Profiles & Statistics** | Named local players, Mii links, controller preferences, party history and verified records. |
-| **Party Setup Wizard** | Guided player/Mii selection, controller assignment and ready checks, with saved party presets. |
-| **Minigame Library** | Searchable catalog, filters, favorites, recently played games and collections. Direct launching depends on reliable game integration. |
-| **Living-Room Mode** | Full-screen, gamepad-navigable launcher designed for TVs and couch play. |
-| **Graphics Presets & Automatic Optimization** | Performance, Balanced and Quality presets plus measured recommendations using existing graphics controls. |
-| **True ultrawide rendering** | Correct wider camera framing and gameplay projection, rather than stretching the 16:9 image. Still planned; the new resolution presets change window size only. |
-| **Online play with friends** | A fourth, green **Online** button next to the three buttons at the bottom of the main menu. There is no server: players connect directly, and the game exchanges only each player's inputs in lockstep. Not started. |
+| **Controller Calibration Lab** | Implemented in the launcher: live gamepad stick/trigger readings, exposed motion-sensor readings, a rumble test, and persistent pointer dead-zone/digital activation controls consumed by the input engine. Wii Remote-specific pointer/speaker tests still need a launcher-facing runtime hook. |
+| **Player Profiles & Statistics** | Implemented: up to eight local named profiles, preferred-Mii links, successful launch counts and last-launch timestamps. Wins/placements are not guessed; trustworthy game-result events are not yet exposed. |
+| **Party Setup Wizard** | Implemented: one-to-four player lineup, profile per player, gamepad-to-player routing, keyboard-as-Player-1 option and persistent party presets. The board/minigame is still selected inside the original game. |
+| **Minigame Library** | Implemented: searchable catalog of 79 entries from the manual play-check list, category filters, favorites and recently viewed selection. Direct launching awaits safe game-state integration. |
+| **Living-Room Mode** | Implemented: fullscreen launcher, larger controls, gamepad navigation and keep-launcher-open behavior when starting the game. |
+| **Graphics Presets & Automatic Optimization** | Implemented: Performance, Balanced and Quality presets apply real video settings; Optimize uses the existing system/session recommendation heuristic rather than claiming a new benchmark. |
+| **True ultrawide rendering** | Still planned: correct wider camera framing and gameplay projection, rather than stretching the 16:9 image. Current resolution presets change window size only. |
+| **Online play with friends** | Not started: a fourth, green **Online** button next to the three buttons at the bottom of the main menu. There is no server: players connect directly, and the game exchanges only each player's inputs in lockstep. |
 
 The launcher has a Miis page that imports individual or batch Wii Mii files and whole Wii Mii databases (up to 100 Miis). Database updates retain an `.bak` copy of the previous database. The texture page imports PNG texture-pack folders, toggles packs on/off, and opens the active folder. The launcher does not bundle third-party or game-derived texture assets; add your own legally obtained packs. A Mii editor of its own is not planned.
 

@@ -69,6 +69,7 @@ add_executable(launcher WIN32
     src/app_dolphin.cpp
     src/app_captures.cpp
     src/app_miis.cpp
+    src/app_features.cpp
     src/app_system.cpp
     ${WP_ENGINE}/src/platform/settings.cpp
     ${WP_ENGINE}/src/platform/options.cpp
