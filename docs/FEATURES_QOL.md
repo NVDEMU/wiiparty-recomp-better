@@ -263,14 +263,13 @@ Requirements:
 
 ### 6.4. Minigame Library
 
-Goal: make the game's minigames easy to browse and organize from the PC launcher.
+**Implemented:** The launcher now catalogs 86 entries: all 79 standard Free Play minigames and all 7 Challenge entries/variants. Search, category filters and favorites are available.
 
-Requirements:
-- Provide a searchable catalog of known minigames, with name, player count and category where verified.
-- Support favorites, recently played entries, personal ratings and user-created collections.
-- Filter by supported player count and game type.
-- Link each entry to known in-game instructions or available documentation.
-- Make direct launching a separate capability that requires reliable game hooks; do not show a working Launch button until it can actually start the chosen minigame.
+**Intentionally not exposed:** Minigame scores/records and direct-launch controls are absent from the UI because the game currently exposes neither reliable result events nor a safe minigame-selection hook. Do not add those controls until the underlying hooks genuinely work.
+
+Remaining enhancements:
+- Link each entry to verified in-game instructions or available documentation.
+- Consider recently played entries, personal ratings and user-created collections only as separate features with real persistence and a clear user benefit.
 
 ### 6.5. Living-Room Mode
 
