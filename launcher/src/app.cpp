@@ -2309,8 +2309,10 @@ void App::play() {
     std::filesystem::permissions(project_.executable(), std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec,
                                  std::filesystem::perm_options::add, logs);
 #endif
-    if (!start_detached(utf8_of(project_.executable()), project_.root)) {
+    std::string launch_error;
+    if (!start_detached(utf8_of(project_.executable()), project_.root, &launch_error)) {
         result_ = texts().start_failed;
+        if (!launch_error.empty()) result_ += ": " + launch_error;
         outcome_ = Outcome::Failure;
         return;
     }
