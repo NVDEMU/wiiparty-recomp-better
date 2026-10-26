@@ -250,13 +250,14 @@ void Process::kill() {
     }
 }
 
-bool start_detached(const std::string& program, const std::filesystem::path& folder) {
+bool start_detached(const std::string& program, const std::filesystem::path& folder, std::string* launch_error) {
     std::wstring line = command_line(program, {});
     std::wstring directory = folder.wstring();
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION info{};
     if (!CreateProcessW(widen(program).c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, directory.c_str(), &startup, &info)) {
+        if (launch_error) *launch_error = system_message(GetLastError());
         return false;
     }
     CloseHandle(info.hThread);
@@ -358,19 +359,60 @@ void Process::kill() {
     }
 }
 
-bool start_detached(const std::string& program, const std::filesystem::path& folder) {
+bool start_detached(const std::string& program, const std::filesystem::path& folder, std::string* launch_error) {
+    // A close-on-exec pipe reports chdir/exec failures back to the parent.
+    int status_pipe[2];
+    if (pipe(status_pipe) != 0) {
+        if (launch_error) *launch_error = std::strerror(errno);
+        return false;
+    }
+    if (fcntl(status_pipe[1], F_SETFD, FD_CLOEXEC) != 0) {
+        const int saved_errno = errno;
+        close(status_pipe[0]);
+        close(status_pipe[1]);
+        if (launch_error) *launch_error = std::strerror(saved_errno);
+        return false;
+    }
     pid_t pid = fork();
     if (pid < 0) {
+        const int saved_errno = errno;
+        close(status_pipe[0]);
+        close(status_pipe[1]);
+        if (launch_error) *launch_error = std::strerror(saved_errno);
         return false;
     }
     if (pid == 0) {
+        close(status_pipe[0]);
         setsid();
         if (chdir(folder.c_str()) != 0) {
+            const int child_errno = errno;
+            (void)write(status_pipe[1], &child_errno, sizeof(child_errno));
             _exit(127);
         }
         char* argv[] = {const_cast<char*>(program.c_str()), nullptr};
         execvp(program.c_str(), argv);
+        const int child_errno = errno;
+        (void)write(status_pipe[1], &child_errno, sizeof(child_errno));
         _exit(127);
+    }
+
+    close(status_pipe[1]);
+    int child_errno = 0;
+    ssize_t count;
+    do {
+        count = read(status_pipe[0], &child_errno, sizeof(child_errno));
+    } while (count < 0 && errno == EINTR);
+    const int read_errno = errno;
+    close(status_pipe[0]);
+    if (count > 0) {
+        int status = 0;
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+        if (launch_error) *launch_error = std::strerror(child_errno);
+        return false;
+    }
+    if (count < 0) {
+        if (launch_error) *launch_error = std::strerror(read_errno);
+        return false;
     }
     return true;
 }
