@@ -35,12 +35,15 @@ jobs:
           fetch-depth: 0
 
       - name: Configure native game runtime
-        run: >-
-          cmake -S . -B build/engine -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          -DWP_FETCH_SDL3=ON
-          -DWP_REQUIRE_SDL3=ON
+        run: |
+          # Force CMake past the generated-code guard so game/test link expressions are checked.
+          mkdir -p build/wiiparty/generated/dol
+          touch build/wiiparty/generated/dol/ci_cmake_generation_probe.cpp
+          cmake -S . -B build/engine -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DWP_FETCH_SDL3=ON \
+            -DWP_REQUIRE_SDL3=ON
 
       - name: Compile native game runtime
         run: cmake --build build/engine --target wp_engine --parallel 2
@@ -105,7 +108,11 @@ jobs:
 
       - name: Configure native game runtime
         shell: msys2 {0}
-        run: cmake -S . -B build/engine -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: |
+          # Exercise game and test link expressions even without game code.
+          mkdir -p build/wiiparty/generated/dol
+          touch build/wiiparty/generated/dol/ci_cmake_generation_probe.cpp
+          cmake -S . -B build/engine -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile native game runtime
         shell: msys2 {0}
@@ -161,11 +168,14 @@ jobs:
             libegl-dev libgl-dev libpulse-dev libasound2-dev libudev-dev libdbus-1-dev zlib1g-dev
 
       - name: Configure native game runtime
-        run: >-
-          cmake -S . -B build/engine -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DWP_FETCH_SDL3=ON
-          -DWP_REQUIRE_SDL3=ON
+        run: |
+          # Exercise game and test link expressions even without game code.
+          mkdir -p build/wiiparty/generated/dol
+          touch build/wiiparty/generated/dol/ci_cmake_generation_probe.cpp
+          cmake -S . -B build/engine -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWP_FETCH_SDL3=ON \
+            -DWP_REQUIRE_SDL3=ON
 
       - name: Compile native game runtime
         run: cmake --build build/engine --target wp_engine --parallel 2
