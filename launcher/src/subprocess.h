@@ -35,6 +35,6 @@ private:
 #endif
 };
 
-bool start_detached(const std::string& program, const std::filesystem::path& folder);
+bool start_detached(const std::string& program, const std::filesystem::path& folder, std::string* error = nullptr);
 bool start_detached(const std::string& program, const std::vector<std::string>& arguments, const std::filesystem::path& folder);
 std::string capture(const std::string& program, const std::vector<std::string>& arguments);
